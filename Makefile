@@ -11,6 +11,9 @@ publish-test: clean dist
 publish: clean dist
 	twine upload dist/*
 
+install-local: clean dist
+	python setup.py install
+
 test: 
 	tox
 

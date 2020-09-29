@@ -6,7 +6,7 @@ logger = logging.getLogger(__file__)
 
 """
 Thread-safe dict uid-->device.
-Iterate over all known devices (regardless of age):
+Iterate over all known devices (regardless of age). Example:
 
     ds = DiscoverSerial()
     with ds as devices:
@@ -48,3 +48,23 @@ class Discover(ABC):
 
     def __exit__(self, type, value, traceback):
         self.__devices_lock.release()
+
+
+def main():
+    from . import DiscoverSerial
+    from . import DiscoverNet
+    dn = DiscoverSerial()
+    print("scanning serial ...")
+    dn.scan()
+    with dn as devices:
+        for dev in devices:
+            print(f"   Found {dev}")
+    dn = DiscoverNet()
+    print("\nscanning net ...")
+    dn.scan()
+    with dn as devices:
+        for dev in devices:
+            print(f"   Found {dev}")
+
+if __name__ == "__main__":
+    main()

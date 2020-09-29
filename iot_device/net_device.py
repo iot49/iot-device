@@ -83,4 +83,4 @@ class NetDevice(Device):
         return self.uid
 
     def __repr__(self):
-        return f"NetDevice {self.uid} at {self.__address}, age {self.age:.1}s"
+        return f"NetDevice {self.uid} at {self.__address}"

@@ -42,4 +42,15 @@ class DiscoverNet(Discover):
                     logger.debug("Timeout in discovery")
                 except json.JSONDecodeError:
                     logger.debug(f"Received malformed advertisement: {msg}")
- 
+
+
+def main():
+    dn = DiscoverNet()
+    print("scanning ...")
+    dn.scan()
+    with dn as devices:
+        for dev in devices:
+            print(f"Found {dev}")
+
+if __name__ == "__main__":
+    main()

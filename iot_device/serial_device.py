@@ -19,7 +19,7 @@ class SerialDevice(Device):
         try:
             self.__serial = Serial(self.__port, self.__baudrate, parity='N', timeout=0.5)
         except SerialException as se:
-            logger.info(f"SerialDevice: __connect failed {se}")
+            logger.error(f"SerialDevice: __connect failed {se}")
 
     def read(self, size=1):
         for _ in range(2):
@@ -64,4 +64,4 @@ class SerialDevice(Device):
         return self.__port
 
     def __repr__(self) -> str:
-        return f"SerialDevice {self.uid}, age {self.age:.1f}s at {self.__port}, {self.__baudrate} baud ({self.__description})"
+        return f"SerialDevice {self.uid} at {self.__port}, {self.__baudrate} baud ({self.__description})"

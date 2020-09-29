@@ -16,7 +16,7 @@ logger = logging.getLogger(__file__)
 
 class DeviceServer():
 
-    def __init__(self, discovery, max_age=5):
+    def __init__(self, discovery, max_age=2*Config.get('device_scan_interval', 1)):
         # serve devices in discovery
         self.__discovery = discovery
         self.__max_age = max_age
@@ -36,7 +36,7 @@ class DeviceServer():
         self.__sel = selectors.DefaultSelector()
         lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        port = Config.get('connection_server_port')
+        port = Config.get('connection_server_port', 50003)
         lsock.bind(('', port))
         lsock.listen()
         logger.info(f"Listening for connections on {self.__ip}:{port}")
@@ -188,7 +188,7 @@ def main():
 
     from .discover_serial import DiscoverSerial
     discover = DiscoverSerial()
-    server = DeviceServer(discover, 5*Config.get('device_scan_interval', 1))
+    server = DeviceServer(discover, 2*Config.get('device_scan_interval', 1))
     print("started server", server)
 
     while True:

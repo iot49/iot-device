@@ -30,7 +30,7 @@ class DiscoverSerial(Discover):
             for port in serial.tools.list_ports.comports():
                 if port.vid in COMPATIBLE_VID:
                     if not self.has_key(port.device):
-                        logger.debug(f"Found {port.device}")
+                        logger.info(f"Found {port.device}")
                         dev = SerialDevice(port.device, f"{port.product} by {port.manufacturer}")
                         self.add_device(dev)
                 elif port.vid:
@@ -38,3 +38,14 @@ class DiscoverSerial(Discover):
         except Exception as e:
             logger.exception(f"Error in scan: {e}")
 
+
+def main():
+    dn = DiscoverSerial()
+    print("scanning ...")
+    dn.scan()
+    with dn as devices:
+        for dev in devices:
+            print(f"Found {dev}")
+
+if __name__ == "__main__":
+    main()
