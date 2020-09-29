@@ -27,3 +27,4 @@ docs:
 clean:
 	rm -rf dist
 	rm -rf *egg-info
+	rm -rf iot_device/__pycache__
