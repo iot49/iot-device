@@ -70,7 +70,10 @@ class DeviceServer():
         conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # get uid and password (blocking recv)
         # TODO: check for incomplete message!
-        uid_pwd = json.loads(conn.recv(1024).decode())
+        try:
+            uid_pwd = json.loads(conn.recv(1024).decode())
+        except ssl.SSLWantReadError:
+            logger.error("SSLWantReadError in device_server.__accept_wrapper")
         uid = uid_pwd.get('uid', '?')
         device = self.__discovery.get_device(uid)
         logger.debug(f"Request from {addr} to {uid}")
@@ -97,7 +100,19 @@ class DeviceServer():
             sock = key.fileobj
             device = key.data
             if mask & selectors.EVENT_READ:
-                recv_data = sock.recv(256)
+                # debug code for dealing with SSLWantReadError
+                # from Python docs:
+                #    exception ssl.SSLWantReadError
+                #    A subclass of SSLError raised by a non-blocking SSL socket when 
+                #    trying to read or write data, but more data needs to be received 
+                #    on the underlying TCP transport before the request can be fulfilled.
+                for _ in range(10):
+                    try:
+                        recv_data = sock.recv(256)
+                        break
+                    except ssl.SSLWantReadError:
+                        logger.warning("SSLWantReadError in device_server.__service_connection")
+                        time.sleep(0.5)
                 if recv_data:
                     device.write(recv_data)
                 else:

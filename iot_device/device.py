@@ -1,4 +1,5 @@
 from .rsync import Rsync
+from .config_store import Config
 
 from abc import ABC, abstractmethod
 import threading
@@ -23,6 +24,16 @@ class Device(ABC):
     @property
     def uid(self):
         return self.__uid
+
+    @property
+    def name(self) -> str:
+        """Device name, from mcu/base/hosts.py"""
+        return Config.uid2hostname(self.uid)
+
+    @property
+    def projects(self) -> list:
+        """Projects folders of this device, from mcu/base/hosts.py"""
+        return Config.host_projects(self.uid)
 
     @abstractmethod
     def read(self, size=1) -> bytes:

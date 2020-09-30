@@ -37,7 +37,7 @@ class Rsync(Fcopy):
         for u in mcu_files.keys() & host_files.keys():
             mcu_time, mcu_size = mcu_files[u]
             _, host_time, host_size = host_files[u]
-            # size < 1 indicates directory
+            # size < 0 indicates directory
             if (mcu_size != host_size) or ((mcu_time < host_time) and mcu_size >= 0):
                 to_update.add(u)
         # convert to_add and to_update to dicts pointing to project
@@ -56,19 +56,22 @@ class Rsync(Fcopy):
         if add_ or del_ or upd_:
             for a,p in add_.items():
                 # do not report redundant directory creation
-                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, a))
+                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), 'mcu', p, a))
+                dst_file = a
                 if os.path.isfile(src_file):
                     output.ans(colored(f"COPY    {a}\n", 'green'))
                 if not dry_run:
-                    self.fput(p, a)
+                     self.fput(src_file, dst_file)
             for d in del_:
-                output.ans(colored(f"DELETE  {d}\n", 'red'))
                 if not dry_run:
+                    output.ans(colored(f"DELETE  {d}\n", 'red'))
                     self.rm_rf(d, recursive=True)
             for u,p in upd_.items():
                 output.ans(colored(f"UPDATE  {u}\n", 'blue'))
+                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), 'mcu', p, u))
+                dst_file = u
                 if not dry_run:
-                    self.fput(p, u)
+                    self.fput(src_file, dst_file)
         else:
             output.ans("Directories match\n")
 
@@ -80,7 +83,7 @@ class Rsync(Fcopy):
         if path.startswith('/'):  path = path[1:]
         path_output = PathOutput(output)
         self.__mcu_list(path_output, path)
-        output.ans('\n')
+        # output.ans('\n')
         return path_output.files
 
     def host_files(self, path, projects=['base']):
@@ -91,7 +94,7 @@ class Rsync(Fcopy):
         if path.startswith('/'):  path = path[1:]
         files = dict()
         for proj in projects:
-            full_path = os.path.join(Config.get('host_dir'), proj)
+            full_path = os.path.join(Config.get('host_dir', '~'), 'mcu', proj)
             full_path = os.path.expanduser(full_path)
             self.__host_list(files, full_path, proj, path)
         return files
@@ -108,7 +111,8 @@ class Rsync(Fcopy):
         mtime = os.path.getmtime(full_path)
         if os.path.isdir(full_path):
             # directory
-            files[path] = (project, mtime, -1)
+            if len(path):
+                files[path] = (project, mtime, -1)
             for p in os.listdir(full_path):
                 if p.startswith('.'): continue
                 self.__host_list(files, root, project, os.path.join(path, p), level+1)
@@ -167,6 +171,7 @@ class ListOutput:
         if line:
             kind, level, path, mtime, size = line.split(b',')
             path = eval(path)
+            if len(path)<=0: return
             level = int(level)
             ts = datetime.fromtimestamp(int(mtime))
             mtime = ts.strftime("%b %d %H:%M %Y")
@@ -197,20 +202,20 @@ class PathOutput:
             path  = eval(path)
             # ignore files and directories with names that start with a period
             # these files, when created on the mcu, won't be deleted by rsync
-            if path.startswith('.'):
+            if len(path)<=0 or path.startswith('.'):
                 return
             level = int(level)
             mtime = int(mtime)
             size  = int(size)
             full_path = os.path.join(*self.path_stack[:level], path)
-            if kind == 'D':
+            if kind == b'D':
                 self.files[full_path] = (mtime, -1)
                 while len(self.path_stack) < level+1:
                     self.path_stack.append('')
                 self.path_stack[level] = path
             else:
                 self.files[full_path] = (mtime, size)
-                if len(self.files) % 10 == 0:
+                if len(self.files) > 50 and len(self.files) % 10 == 0:
                     self.output.ans('.')
 
     def err(self, b):

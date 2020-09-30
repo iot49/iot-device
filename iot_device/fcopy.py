@@ -24,6 +24,7 @@ class Fcopy(Repl):
         return int(self.eval_func(_file_size, path))
 
     def makedirs(self, path):
+        print(f"makedirs {path}")
         return self.eval_func(_makedirs, path)
 
     def rm_rf(self, path, recursive=False):
@@ -32,38 +33,38 @@ class Fcopy(Repl):
     def cat(self, output, filename):
         self.eval_func(_cat, filename, output=output)
 
-    def fget(self, remote_file, local_file):
-        filesize = self.file_size(remote_file)
+    def fget(self, mcu_file, host_file):
+        filesize = self.file_size(mcu_file)
         if filesize < 0:
             return False
-        return self.eval_func(_mcu_read, remote_file, local_file, filesize, xfer_func=_host_write)
+        return self.eval_func(_mcu_read, mcu_file, host_file, filesize, xfer_func=_host_write)
 
-    def fput(self, local_file, remote_file):
+    def fput(self, host_file, mcu_file):
         # upload file to MCU
-        if os.path.isdir(local_file):
+        if os.path.isdir(host_file):
             # Copy files only, not directories
             return False
-        with open(local_file, 'rb') as f:
+        with open(host_file, 'rb') as f:
             # Check if it's a binary file that could upset REPL (ctrl-C, ...)
             include = [ord(x) for x in '\a\b\f\n\t\v']
             exclude = bytes([ x for x in range(32) if not x in include ])
             binary = any([x in exclude for x in f.read()])
-        filesize = os.path.getsize(local_file)
-        self.makedirs(os.path.dirname(remote_file))
-        res = self.eval_func(_mcu_write, local_file, remote_file, filesize, binary, xfer_func=_host_read)
+        filesize = os.path.getsize(host_file)
+        self.makedirs(os.path.dirname(mcu_file))
+        res = self.eval_func(_mcu_write, host_file, mcu_file, filesize, binary, xfer_func=_host_read)
         return res
 
 
 ##########################################################################
 # Code running on MCU
 
-def _mcu_write(local_file, remote_file, filesize, binary):
+def _mcu_write(host_file, mcu_file, filesize, binary):
     # receives file from host and writes to flash as `filename`
     import sys
     try:
         if binary:
             import binascii
-        with open(remote_file, 'wb') as dst_file:
+        with open(mcu_file, 'wb') as dst_file:
             bytes_remaining = filesize
             if binary: bytes_remaining *= 2    # hexlify doubles size
             write_buf = bytearray(BUFFER_SIZE)
@@ -87,12 +88,12 @@ def _mcu_write(local_file, remote_file, filesize, binary):
         sys.stdout.write(b'\x07')
         raise
 
-def _host_read(device, local_file, remote_file, filesize, binary):
+def _host_read(device, host_file, mcu_file, filesize, binary):
     # reads file from host and sends to MCU
     # pass to `ReplOps.eval_func` as the xfer_func argument
     # matches up with mcu_write
     host_dir = os.path.expanduser(Config.get('host_dir'))
-    src_file_name = os.path.join(host_dir, local_file)
+    src_file_name = os.path.join(host_dir, host_file)
     buf_size = BUFFER_SIZE // 2 if binary else BUFFER_SIZE
     with open(src_file_name, 'rb') as src_file:
         bytes_remaining = filesize
@@ -110,10 +111,10 @@ def _host_read(device, local_file, remote_file, filesize, binary):
             bytes_remaining -= read_size
     return True
     
-def _mcu_read(remote_file, local_file, filesize):
+def _mcu_read(mcu_file, host_file, filesize):
     # reads file from flash and sends to host
     import sys
-    with open(remote_file, 'rb') as src_file:
+    with open(mcu_file, 'rb') as src_file:
         bytes_remaining = filesize
         while bytes_remaining > 0:
             read_size = min(bytes_remaining, BUFFER_SIZE)
@@ -127,12 +128,12 @@ def _mcu_read(remote_file, local_file, filesize):
             if ack != '\x06':
                 raise ValueError("Expected '\\x06', got '{}'".format(ord(ack)))
 
-def _host_write(device, remote_file, local_file, filesize):
+def _host_write(device, mcu_file, host_file, filesize):
     # receives file from MCU and saves on host
     # pass to `ReplOps.eval_func` as the xfer_func argument
     # matches up with mcu_read
     host_dir = os.path.expanduser(Config.get('host_dir'))
-    dst_file_name = os.path.join(host_dir, local_file)
+    dst_file_name = os.path.join(host_dir, host_file)
     with open(dst_file_name, 'wb') as dst_file:
         bytes_remaining = filesize
         write_buf = bytearray(BUFFER_SIZE)
@@ -188,7 +189,7 @@ def _rm_rf(path, recursive):
                     success = _rm_rf(path + '/' + file, recursive)
                     if not success:
                         return False
-                os.rmdir(path)
+            os.rmdir(path)
         else:
             os.remove(path)
     except:

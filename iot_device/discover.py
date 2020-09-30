@@ -42,6 +42,9 @@ class Discover(ABC):
                 return True
         return False
 
+    def clear_devices(self):
+        self.__devices = {}
+
     def __enter__(self):
         self.__devices_lock.acquire()
         return self.__devices.values()

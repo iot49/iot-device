@@ -23,7 +23,10 @@ class NetDevice(Device):
     def read(self, size=1):
         res = bytearray()
         while len(res) < size:
-            b = self.__socket.recv(size-len(res))
+            try:
+                b = self.__socket.recv(size-len(res))
+            except ssl.SSLWantReadError as sre:
+                logger.error(f"NetDevice.read, {sre}")
             if b:
                 res.extend(b)
             else:
@@ -31,7 +34,10 @@ class NetDevice(Device):
         return res
 
     def read_all(self):
-        b = self.__socket.recv(1024)
+        try:
+            b = self.__socket.recv(1024)
+        except ssl.SSLWantReadError as sre:
+            logger.error(f"NetDevice.read_all, {sre}")        
         if b: 
             return b
         else:
