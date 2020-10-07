@@ -42,7 +42,7 @@ class DeviceRegistry:
     def get_device(self, uid, protocol='any') -> Device:
         """Return device matching uid and the protocol.
         Protocol 'any' returns any device with given uid.
-        Returns None if no devices matches the specification."""
+        Returns None if no devices matche the specification."""
         devs = self.get_devices(uid)
         if devs:
             if protocol == 'any':

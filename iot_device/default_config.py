@@ -10,10 +10,10 @@ def __register(name, value, doc):
     default_docs  [name] = doc
 
 __register('host_dir', 
-    os.path.expanduser(os.path.join(os.getenv('IOT49', '~/'), 'mcu'),
-    "Path to microcontroller configuration and libraries")
+    os.path.expanduser(os.path.join(os.getenv('IOT49', '~/'), 'mcu')),
+    "Configuration and libraries. Default: $IOT49/mcu")
 
-__register('device_server_port', 
+__register('server_port', 
     50001,
     "Port on which DeviceServer listens for connections")
 

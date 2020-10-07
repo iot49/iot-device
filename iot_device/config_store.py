@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .default_config import default_config
+from .default_config import default_config, default_docs
 from .version import __version__
 import sys
 import os
@@ -16,6 +16,11 @@ class Config:
     def get(name, default=None):
         """Return setting or default."""
         return Config.config().get(name, default)
+
+    @staticmethod
+    def getdoc(name):
+        """Documentation for configuration variables"""
+        return default_docs.get(name, "")
 
     @staticmethod
     def config():

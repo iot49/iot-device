@@ -7,6 +7,7 @@ install_requires = [
     "pyserial",
     "termcolor",
     "pyopenssl",
+    "zeroconf",
 ]
 
 setuptools.setup(

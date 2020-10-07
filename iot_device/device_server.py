@@ -35,7 +35,7 @@ class AdvertiseServer:
         info = ServiceInfo(
             type_="_repl._tcp.local.",
             name=device.name + "." + "_repl._tcp.local.",
-            port=Config.get('device_server_port'), 
+            port=Config.get('server_port'), 
             properties = { "uid": device.uid, "name": device.name },
             addresses=self._addresses)
         self._id2info[id] = info
@@ -72,7 +72,7 @@ class DeviceServer():
         self.__sel = selectors.DefaultSelector()
         lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        port = Config.get('device_server_port')
+        port = Config.get('server_port')
         lsock.bind(('', port))
         lsock.listen()
         logger.info(f"Listening for connections on {self.__ip}:{port}")
