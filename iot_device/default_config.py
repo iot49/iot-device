@@ -2,10 +2,21 @@
 
 import os
 
-default_config = {
-    'host_dir': os.path.expanduser(os.path.join(os.getenv('IOT49', '~/'), 'mcu')),
-    'mcu_dir': '/volumes/CIRCUITPY',
-    'device_scan_interval': 1.0,
-    'advertise_port': 50003,
-    'connection_server_port': 50001,
-}
+default_config = {}
+default_docs   = {}
+
+def __register(name, value, doc):
+    default_config[name] = value
+    default_docs  [name] = doc
+
+__register('host_dir', 
+    os.path.expanduser(os.path.join(os.getenv('IOT49', '~/'), 'mcu'),
+    "Path to microcontroller configuration and libraries")
+
+__register('device_server_port', 
+    50001,
+    "Port on which DeviceServer listens for connections")
+
+__register('password', 
+    "replace with a strong password",
+    "Password protection for NetDevice & DeviceServer")

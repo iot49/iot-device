@@ -1,5 +1,6 @@
+from .device_registry import DeviceRegistry
 from .discover_net import DiscoverNet
 from .discover_serial import DiscoverSerial
-from .repl import ReplException
+from .eval import EvalException
 from .config_store import Config
 from .version import __version__

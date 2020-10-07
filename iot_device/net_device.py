@@ -1,5 +1,5 @@
 from .device import Device
-from .repl import ReplException
+from .eval import EvalException
 from .config_store import Config
 
 import socket
@@ -15,11 +15,19 @@ class PasswordError(Exception):
 
 class NetDevice(Device):
 
-    def __init__(self, adv):
-        self.__address = (adv['ip_addr'], adv['ip_port'])
+    def __init__(self, uid, address):
         self.__socket = None
-        super().__init__(adv['uid'])
+        self.__address = address
+        super().__init__(uid)
 
+    @property
+    def address(self):
+        return self.__address
+
+    @property
+    def connection(self):
+        return 'net'
+        
     def read(self, size=1):
         res = bytearray()
         while len(res) < size:
@@ -62,7 +70,6 @@ class NetDevice(Device):
 
     def __connect(self):
         # establish connection to server
-        logger.debug("net_device.__connect")
         assert self.__socket == None
         self.__socket = socket.socket()
         context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
@@ -71,22 +78,19 @@ class NetDevice(Device):
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         self.__socket = context.wrap_socket(self.__socket)
-        logger.debug("net_device.__connect  -- socket.connect")
         self.__socket.connect(self.__address)
-        logger.debug("net_device.__connect  -- setsockopt")
         self.__socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # password check
-        logger.debug("net_device.__connect  -- send pwd")
         msg = { 'uid': self.uid, 'password': Config.get('password') }
         self.write(json.dumps(msg).encode())
-        logger.debug("net_device.__connect  -- wait for ok")
         msg = self.read_all()
         if msg != b'ok':
             raise PasswordError(msg)
 
-    def __hash__(self):
-        return self.uid
-
     def __repr__(self):
-        return f"NetDevice {self.uid} at {self.__address}"
+        return f"NetDevice {self.name} ({self.uid}) at {self.__address}"
+
+    def __hash__(self) -> int:
+        return hash(self.__repr__())
+        

@@ -1,12 +1,13 @@
 from .discover import Discover
-from .repl import ReplException
 from .serial_device import SerialDevice
+from .eval import EvalException
 
 from serial import SerialException
 import time
 import logging
 import serial
 import serial.tools.list_ports
+import threading
 
 logger = logging.getLogger(__file__)
 
@@ -21,31 +22,57 @@ COMPATIBLE_VID = { ADAFRUIT_VID, PARTICLE_VID, STM32_VID, ESP32_VID }
 
 class DiscoverSerial(Discover):
 
-    def __init__(self):
+    def __init__(self, scan_rate: float = 0.2):
+        """Start a daemon thread that continually scans ports every scan_rate seconds."""
         super().__init__()
+        # set of currently active ports
+        self._ports = set()
+        th = threading.Thread(target=self._scanner, args=(scan_rate,), name="serial scanner")
+        th.setDaemon(True)
+        th.start()
+        self._scan_thread = th
 
     def scan(self):
-        # scan & replicate serial ports
-        try:
-            for port in serial.tools.list_ports.comports():
-                if port.vid in COMPATIBLE_VID:
-                    if not self.has_key(port.device):
-                        logger.info(f"Found {port.device}")
-                        dev = SerialDevice(port.device, f"{port.product} by {port.manufacturer}")
-                        self.add_device(dev)
-                elif port.vid:
-                    logger.info("Found {} with unknown VID {:02X} (ignored)".format(port, port.vid))
-        except Exception as e:
-            logger.exception(f"Error in scan: {e}")
+        """Scan for new/removed devices."""
+        current_ports = self._list_ports()
+        added = current_ports - self._ports
+        removed = self._ports - current_ports
+        self._ports = current_ports
+        # notify listeners
+        for port in added:
+            try:
+                dev = SerialDevice(port)
+                # A device may be accessible simulataneously via multiple
+                # protocols, e.g. a serial interface and an async task.
+                # Note: uid not available in remove ...
+                self._register_device(port, dev)
+            except (TimeoutError, EvalException):
+                # esp32 takes time to boot ...
+                self._ports.remove(port)
+        for port in removed:
+            self._unregister_device(port)
+
+    def _list_ports(self):
+        """Set of ports with connected microcontrollers"""
+        ports = set()
+        for port in serial.tools.list_ports.comports():
+            if port.vid in COMPATIBLE_VID:
+                ports.add(port.device)
+            elif port.vid:
+                logger.info("Found {} with unknown VID {:02X} (ignored)".format(port, port.vid))
+        return ports
+
+    def _scanner(self, scan_rate: float):
+        while True:
+            self.scan()
+            time.sleep(scan_rate)
 
 
 def main():
-    dn = DiscoverSerial()
-    print("scanning ...")
-    dn.scan()
-    with dn as devices:
-        for dev in devices:
-            print(f"Found {dev}")
+    ds = DiscoverSerial()
+    while True:
+        ds.scan()
+        time.sleep(0.1)
 
 if __name__ == "__main__":
     main()

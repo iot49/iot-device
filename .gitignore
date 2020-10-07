@@ -18,3 +18,4 @@ build
 .direnv
 *.sh
 *example.py
+zeroconf*.py

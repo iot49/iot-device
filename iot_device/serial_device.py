@@ -1,4 +1,5 @@
 from .device import Device
+from .config_store import Config
 
 from serial import Serial, SerialException
 import time
@@ -8,12 +9,18 @@ logger = logging.getLogger(__file__)
 
 class SerialDevice(Device):
 
-    def __init__(self, port, description, baudrate=115200):
+    def __init__(self, port, baudrate=115200):
         self.__port = port
-        self.__description = description
         self.__baudrate = baudrate
-        self.__connect()
         super().__init__()
+
+    @property
+    def address(self):
+        return self.__port
+
+    @property
+    def connection(self):
+        return 'serial'
 
     def __connect(self):
         try:
@@ -60,8 +67,9 @@ class SerialDevice(Device):
     def __eq__(self, other):
         return isinstance(other, SerialDevice) and self.__port == other.__port
 
-    def __hash__(self):
-        return self.__port
-
     def __repr__(self) -> str:
-        return f"SerialDevice {self.uid} at {self.__port}, {self.__baudrate} baud ({self.__description})"
+        return f"SerialDevice {self.name} ({self.uid}) at {self.__port}"
+
+    def __hash__(self) -> int:
+        return hash(self.__port)
+        

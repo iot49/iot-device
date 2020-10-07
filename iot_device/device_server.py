@@ -1,6 +1,8 @@
+from .device_registry import DeviceRegistry
 from .certificate import create_key_cert_pair
 from .config_store import Config
 
+from zeroconf import ServiceInfo, Zeroconf
 from serial import SerialException
 import socket
 import selectors
@@ -14,29 +16,63 @@ import logging
 logger = logging.getLogger(__file__)
 
 
+def _my_ip():
+    # determine host's ip address
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        # fake address, does not need to be reachable
+        s.connect(('10.1.1.1', 1))
+        return s.getsockname()[0]
+
+
+class AdvertiseServer:
+
+    def __init__(self):
+        self._zeroconf = Zeroconf()
+        self._addresses = [socket.inet_aton(_my_ip())]
+        self._id2info = {}
+
+    def register_device(self, id, device):
+        info = ServiceInfo(
+            type_="_repl._tcp.local.",
+            name=device.name + "." + "_repl._tcp.local.",
+            port=Config.get('device_server_port'), 
+            properties = { "uid": device.uid, "name": device.name },
+            addresses=self._addresses)
+        self._id2info[id] = info
+        self._zeroconf.register_service(info, allow_name_change=True)
+
+    def unregister_device(self, id):
+        try:
+            info = self._id2info[id]
+            if info: 
+                self._zeroconf.unregister_service(info)
+                del self._id2info[id]
+        except AttributeError:
+            pass
+    
+
+
+
 class DeviceServer():
 
-    def __init__(self, discovery, max_age=2*Config.get('device_scan_interval', 1)):
-        # serve devices in discovery
-        self.__discovery = discovery
-        self.__max_age = max_age
-        self.__ip = self.__my_ip()
+    def __init__(self, device_registry):
+        # serve devices in device_registry
+        self.__device_registry = device_registry
+        self.__ip = _my_ip()
         self.__ssl_context = self.__make_ssl_context()
         # start connection server
-        th = threading.Thread(target=self.__device_server, name="Serve Devices")
-        th.setDaemon(True)
-        th.start()
-        # start advertising deamon
-        th = threading.Thread(target=self.__advertise, name="Advertise")
-        th.setDaemon(True)
-        th.start()
+        if False:
+            th = threading.Thread(target=self.__device_server, name="net device server")
+            th.setDaemon(True)
+            th.start()
 
-    def __device_server(self):
-        # serve multiple connections to different devices in parallel
+
+    def serve(self):
+        """Serve multiple connections to different devices in parallel. Never returns."""
         self.__sel = selectors.DefaultSelector()
         lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        port = Config.get('connection_server_port', 50003)
+        port = Config.get('device_server_port')
         lsock.bind(('', port))
         lsock.listen()
         logger.info(f"Listening for connections on {self.__ip}:{port}")
@@ -51,6 +87,7 @@ class DeviceServer():
                 else:
                     # client connection
                     self.__service_connection(key, mask)
+
 
     def __accept_wrapper(self, sock):
         # accept connection
@@ -74,8 +111,11 @@ class DeviceServer():
             uid_pwd = json.loads(conn.recv(1024).decode())
         except ssl.SSLWantReadError:
             logger.error("SSLWantReadError in device_server.__accept_wrapper")
+        except (ConnectionResetError, Exception):
+            conn.close()
+            return
         uid = uid_pwd.get('uid', '?')
-        device = self.__discovery.get_device(uid)
+        device = self.__device_registry.get_device(uid)
         logger.debug(f"Request from {addr} to {uid}")
         # check password & device status
         ans = None
@@ -94,6 +134,7 @@ class DeviceServer():
             device.__enter__()
             events = selectors.EVENT_READ | selectors.EVENT_WRITE
             self.__sel.register(conn, events, data=device)
+
 
     def __service_connection(self, key, mask):
         try:
@@ -131,49 +172,9 @@ class DeviceServer():
             sock.close()
             device.__exit__(None, None, None)
 
-    def __advertise(self):
-        s = None
-        while True:
-            try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP socket
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                advertise_port = Config.get('advertise_port')
-                self.__discovery.scan()
-                with self.__discovery as devices:
-                    for dev in devices:
-                        if dev.age > self.__max_age: 
-                            # logger.debug(f"Not advertising {dev}, age {dev.age} > {self.max_age}")
-                            continue
-                        msg = {
-                            'uid': dev.uid,
-                            'ip_addr': self.__ip,
-                            'ip_port': Config.get('connection_server_port'),
-                            'protocol': 'repl',
-                            'last_seen': dev.last_seen,
-                        }
-                        data = json.dumps(msg)
-                        s.sendto(data.encode(), ('255.255.255.255', advertise_port))
-                        # logger.debug(f"Advertise {dev}")
-            except Exception as e:
-                # restart, e.g. in case of [Errno 51] Network is unreachable
-                logger.exception(f"Network unreachabl (advertise), attempting to reconnect: {e}")
-                if s:
-                    try:
-                        s.close()
-                    except:
-                        pass
-                time.sleep(5)
-            time.sleep(Config.get('device_scan_interval', 1))
 
-    def __my_ip(self):
-        # determine host's ip address
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            # fake address, does not need to be reachable
-            s.connect(('10.1.1.1', 1))
-            return s.getsockname()[0]
-
-    def __make_ssl_context(self):
+    @staticmethod
+    def __make_ssl_context():
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         with tempfile.NamedTemporaryFile() as cert_file:
             key, cert = create_key_cert_pair()
@@ -186,28 +187,34 @@ class DeviceServer():
         return context
 
 
-
 ##########################################################################
 # Main
 
 def main():
+    from .discover_serial import DiscoverSerial
     import sys
+
+    level = logging.INFO
     root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
+    root.setLevel(level)
 
     handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
+    handler.setLevel(level)
     formatter = logging.Formatter('%(levelname)s %(filename)s: %(message)s')
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
-    from .discover_serial import DiscoverSerial
-    discover = DiscoverSerial()
-    server = DeviceServer(discover, 2*Config.get('device_scan_interval', 1))
-    print("started server", server)
+    # catalog of availble devices
+    registry = DeviceRegistry()
 
-    while True:
-        time.sleep(10)
+    # scan serial ports, updated registry and advertise
+    discover_serial = DiscoverSerial()
+    discover_serial.register_listener(registry)
+    discover_serial.register_listener(AdvertiseServer())
+
+    # accept connections and device communication
+    DeviceServer(registry).serve()
+
 
 if __name__ == "__main__":
     main()

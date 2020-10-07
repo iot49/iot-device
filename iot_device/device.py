@@ -1,4 +1,7 @@
-from .rsync import Rsync
+from .eval import Eval
+from .repl_eval import ReplEval
+from .eval_fops import EvalFops
+from .eval_rsync import EvalRsync
 from .config_store import Config
 
 from abc import ABC, abstractmethod
@@ -9,21 +12,43 @@ import logging
 logger = logging.getLogger(__file__)
 
 
+# Composed object:
+#     ReplEval provides Eval for MicroPython raw repl
+#     EvalFops adds file operations
+#     EvalRsync adds rsync, rlist capability
+class EvalFopsRsync(EvalFops, EvalRsync, ReplEval):
+    def __init__(self, device, **kwargs):
+        super(EvalFopsRsync, self).__init__(device, **kwargs)
+
+
 class Device(ABC):
 
-    def __init__(self, uid=None, last_seen=0):
+    def __init__(self, uid=None):
         self.__lock = threading.Lock()
         if uid:
             self.__uid = uid
         else:
             with self as repl:
                 self.__uid = repl.uid
-        self.__seen = last_seen
-        logger.debug(f"Created {self}")
 
     @property
     def uid(self):
         return self.__uid
+
+    @property
+    def protocol(self) -> str:
+        return 'repl'
+
+    @property
+    @abstractmethod
+    def address(self):
+        pass
+
+    @property
+    @abstractmethod
+    def connection(self):
+        # serial, net, ...
+        pass
 
     @property
     def name(self) -> str:
@@ -61,41 +86,30 @@ class Device(ABC):
         start = time.monotonic()
         while not result.endswith(pattern):
             if (time.monotonic() - start) > timeout:
-                raise TimeoutError(f"Timeout reading from IoT device, got '{result}', expect '{pattern}'")
+                raise TimeoutError(f"Timeout reading from IoT device, got '{result.decode()}', expect '{pattern.decode()}'")
             b = self.read(size=1)
             result.extend(b)
         return result
 
-    @property
-    def age(self) -> float:
-        """Time in seconds since seen was last called.
-        Used to "prune" devices gone offline.
-        """
-        return time.monotonic() - self.__seen 
-
-    @property
-    def last_seen(self) -> float:
-        """Time last seen (time.monotonic)."""
-        return self.__seen
-
-    def seen(self):
-        """Set age to zero."""
-        self.__seen = time.monotonic()
-
     def __eq__(self, other):
         return self == other
-
-    @abstractmethod
-    def __hash__(self):
-        pass
 
     @property
     def locked(self) -> bool:
         return self.__lock.locked()
 
-    def __enter__(self) -> Rsync:
-        self.__lock.acquire()
-        return Rsync(self)
+    def __enter__(self) -> Eval:
+        if not self.__lock.acquire(timeout=10):
+            raise TimeoutError("lock acquisition timed out for {self.name} ({self.uid})")
+        if self.protocol == 'repl':
+            return EvalFopsRsync(self)
+        else:
+            raise NotImplementedError(f"No evaluator for protocol {self.protocol}")
 
     def __exit__(self, type, value, traceback):
         self.__lock.release()
+
+    @abstractmethod
+    def __hash__(self) -> int:
+        pass
+        

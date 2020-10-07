@@ -1,4 +1,3 @@
-from .fcopy import Fcopy
 from .config_store import Config
 from termcolor import colored    # pylint: disable=import-error
 
@@ -16,10 +15,10 @@ Device with added features:
 """
 
 
-class Rsync(Fcopy):
+class EvalRsync:
 
-    def __init__(self, connection):
-        super().__init__(connection)
+    def __init__(self, *args, **kwargs):
+        super(EvalRsync, self).__init__(*args, **kwargs)
 
     def rlist(self, output, path='/'):
         logger.debug(f"rlist {path}")
@@ -56,7 +55,7 @@ class Rsync(Fcopy):
         if add_ or del_ or upd_:
             for a,p in add_.items():
                 # do not report redundant directory creation
-                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), 'mcu', p, a))
+                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, a))
                 dst_file = a
                 if os.path.isfile(src_file):
                     output.ans(colored(f"COPY    {a}\n", 'green'))
@@ -68,7 +67,7 @@ class Rsync(Fcopy):
                     self.rm_rf(d, recursive=True)
             for u,p in upd_.items():
                 output.ans(colored(f"UPDATE  {u}\n", 'blue'))
-                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), 'mcu', p, u))
+                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, u))
                 dst_file = u
                 if not dry_run:
                     self.fput(src_file, dst_file)
@@ -94,7 +93,7 @@ class Rsync(Fcopy):
         if path.startswith('/'):  path = path[1:]
         files = dict()
         for proj in projects:
-            full_path = os.path.join(Config.get('host_dir', '~'), 'mcu', proj)
+            full_path = os.path.join(Config.get('host_dir', '~'), proj)
             full_path = os.path.expanduser(full_path)
             self.__host_list(files, full_path, proj, path)
         return files
