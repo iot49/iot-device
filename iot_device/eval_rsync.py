@@ -62,8 +62,8 @@ class EvalRsync:
                 if not dry_run:
                      self.fput(src_file, dst_file)
             for d in del_:
+                output.ans(colored(f"DELETE  {d}\n", 'red'))
                 if not dry_run:
-                    output.ans(colored(f"DELETE  {d}\n", 'red'))
                     self.rm_rf(d, recursive=True)
             for u,p in upd_.items():
                 output.ans(colored(f"UPDATE  {u}\n", 'blue'))
