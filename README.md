@@ -1,52 +1,32 @@
 # IoT Device
 
-## TODO
+Interface with Microcontrollers running MicroPython (or a derivative).
+Supports device discovery, serial and wireless connections, code
+evaluation and file upload and download.
 
-* make sure age of NetDevice is correct
-
-## Usage Example:
-
-```python
-# or DiscoverSerial, if USB ports are available
-from iot_device import DiscoverNet as Discover  
-
-discover = Discover()
-discover.scan()    # look for advertised devices, run this whenever things may have changed
-
-with discover as devices:
-    
-    for dev in devices:
-        print(dev.uid)
-        with dev as repl do:
-            repl.eval("print('hello world!')")
-        
-```
+See "examples/" folder for usage.
 
 ## Classes
 
 see *OVERVIEW.dio*
 
-* abstract `Discover`
-  * implementations `DiscoverNet`, `DiscoverSerial`
-  * `scan` finds and keeps a list of available devices (run repeatedly)
-  * Keeps a list of devices, returned via context manager: `with Discover as devices: ...`
-  * `get_device(uid)` returns up a specific device
-  * Lock: prevents co-modification (simultaneous calls to scan, etc)
+* `DeviceRegistry`
+  * catalog of currently available devices
+  * maintained by `Discover` agents (`DiscoverNet`, `DiscoverSerial`)
+  * devices automatically join and leave registry, e.g. in response to connecting to usb
+  * `get_device(uid)` returns `Device` matching `uid` (obtained from microcontroller)
   
 * abstract `Device`
   * implementations `SerialDevice`, `NetDevice`
-  * Not instantiated directly, get from `Discover`
+  * Not instantiated directly, get from `DeviceRegistry`
   * Property `uid` - unique, read from device and cached
   * Property `locked` - True if device is in used (e.g. `eval` from different process)
   * Context manager `with dev as repl: ...`
     * `repl.eval`, `softreset`, `rsync`
-    * see `Rsync`, `Fcopy`, `Repl` classes for available functions
-    * `repl` object has all these capabilities 
-    * (it's presently a `Rsync`, more capabilities could be added in derived classes)
     
 * `Config` (singleton)
     * gets configuration from
       * `DefaultConfig`
-      * `config.py`
+      * `$IOT49/mcu/config.py`
 
 * `certificate` - Used to encrypt communication (`DiscoverNet`)
