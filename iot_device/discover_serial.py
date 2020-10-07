@@ -66,13 +66,3 @@ class DiscoverSerial(Discover):
         while True:
             self.scan()
             time.sleep(scan_rate)
-
-
-def main():
-    ds = DiscoverSerial()
-    while True:
-        ds.scan()
-        time.sleep(0.1)
-
-if __name__ == "__main__":
-    main()

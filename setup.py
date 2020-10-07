@@ -31,11 +31,8 @@ setuptools.setup(
     entry_points = {
         'console_scripts': [
             'iot_server=iot_device.device_server:main',
-            'iot_discover_serial=iot_device.discover_serial:main',
-            'iot_discover_net=iot_device.discover_net:main',
-            'iot_discover=iot_device.discover:main',
         ],
     },
-    scripts = [ 'server.sh' ],
+    scripts = [ 'iot_server.sh', 'iot_registry.sh' ],
     python_requires='>=3.8',
 ) 

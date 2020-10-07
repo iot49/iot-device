@@ -8,8 +8,6 @@ See "examples/" folder for usage.
 
 ## Classes
 
-see *OVERVIEW.dio*
-
 * `DeviceRegistry`
   * catalog of currently available devices
   * maintained by `Discover` agents (`DiscoverNet`, `DiscoverSerial`)
@@ -24,9 +22,9 @@ see *OVERVIEW.dio*
   * Context manager `with dev as repl: ...`
     * `repl.eval`, `softreset`, `rsync`
     
-* `Config` (singleton)
-    * gets configuration from
-      * `DefaultConfig`
-      * `$IOT49/mcu/config.py`
+* `Config` (singleton), reads configuration from:
+  * `DefaultConfig`
+  * `$IOT49/mcu/config.py` (see examples/config.py)
+  * `$IOT49/mcu/hosts.py` (see examples/hosts.py)
 
-* `certificate` - Used to encrypt communication (`DiscoverNet`)
+* `certificate` - Used to encrypt repl over internet (`DeviceServer`)

@@ -72,15 +72,7 @@ def main():
     from .discover_net import DiscoverNet
     import sys, time
 
-    level = logging.INFO
-    root = logging.getLogger()
-    root.setLevel(level)
-
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(level)
-    formatter = logging.Formatter('%(levelname)s %(filename)s: %(message)s')
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
+    logging.getLogger().setLevel(logging.INFO)
 
     # catalog of availble devices
     registry = DeviceRegistry()
@@ -90,10 +82,14 @@ def main():
     DiscoverNet().register_listener(registry)
 
     while True:
-        time.sleep(5)
-        print("active devices:")
-        for d in registry.devices():
-            print(f"    {d}")
+        if registry.devices():
+            print("active devices:")
+            for d in registry.devices():
+                print(f"    {d}")
+        else:
+            print("found no devices")
+        time.sleep(1)
 
 if __name__ == "__main__":
-    main()
+    # main()
+    print("*** REG")

@@ -194,15 +194,7 @@ def main():
     from .discover_serial import DiscoverSerial
     import sys
 
-    level = logging.INFO
-    root = logging.getLogger()
-    root.setLevel(level)
-
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(level)
-    formatter = logging.Formatter('%(levelname)s %(filename)s: %(message)s')
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
+    logging.getLogger().setLevel(logging.INFO)
 
     # catalog of availble devices
     registry = DeviceRegistry()
