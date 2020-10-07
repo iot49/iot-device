@@ -1,14 +1,11 @@
 from .eval import Eval, EvalException
+from .config_store import Config
 
 from contextlib import contextmanager
 from serial import SerialException
-import inspect
-import time
-import logging
+import inspect, os, time, logging
 
 logger = logging.getLogger(__file__)
-
-
 
 MCU_RAW_REPL      = b'\x01'    # enter raw repl
 MCU_ABORT         = b'\x03'    # abort
