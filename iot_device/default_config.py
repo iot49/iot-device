@@ -21,6 +21,6 @@ __register('password',
     "replace with a strong password",
     "Password protection for NetDevice & DeviceServer")
 
-__register('mpycross',
+__register('mpy-cross',
     os.path.join(os.getenv('IOT49', '~/'), 'bin'),
-    "Base path to `mpycross`. The full path is `$compiler/%implementation/mpycross`")
+    "Base path to `mpy-cross`. The full path is `$compiler/%implementation/mpycross`")
