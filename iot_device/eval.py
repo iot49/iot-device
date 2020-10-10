@@ -24,6 +24,11 @@ class Eval:
         # But - beware of recursion - Device calls Repl.uid!
         return self.eval_func(_uid)
 
+    @property
+    def implementation(self):
+        # sys.implementation.name, e.g. micropython, circuitpython
+        return self.eval_func(_implementation)
+
     @abstractmethod
     def eval(self, code: str, output=None) -> bytes:
         """Eval code on remote (Micro)Python VM.
@@ -100,3 +105,7 @@ def _uid():
             return None
     return ":".join("{:02x}".format(x) for x in _id)
 
+
+def _implementation():
+    import sys
+    return sys.implementation.name

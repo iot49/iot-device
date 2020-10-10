@@ -20,3 +20,7 @@ __register('server_port',
 __register('password', 
     "replace with a strong password",
     "Password protection for NetDevice & DeviceServer")
+
+__register('mpycross',
+    os.path.join(os.getenv('IOT49', '~/'), 'bin'),
+    "Base path to `mpycross`. The full path is `$compiler/%implementation/mpycross`")

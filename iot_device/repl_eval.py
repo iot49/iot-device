@@ -256,20 +256,3 @@ def _host_write(device, mcu_file, host_file, filesize):
             # Send an ack to the remote as a form of flow control
             device.write(b'\x06')   # ASCII ACK is 0x06
             bytes_remaining -= read_size
-
-
-##########################################################################
-# Code running on MCU
-
-def _uid():
-    try:
-        import machine   # pylint: disable=import-error
-        _id = machine.unique_id()
-    except:
-        try:
-            import microcontroller   # pylint: disable=import-error
-            _id = microcontroller.cpu.uid
-        except:
-            return None
-    return ":".join("{:02x}".format(x) for x in _id)
-
