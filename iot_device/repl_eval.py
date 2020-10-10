@@ -3,7 +3,7 @@ from .config_store import Config
 
 from contextlib import contextmanager
 from serial import SerialException
-import inspect, os, time, logging
+import inspect, os, time, logging, binascii
 
 logger = logging.getLogger(__file__)
 
