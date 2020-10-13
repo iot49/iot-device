@@ -1,4 +1,4 @@
-import binascii
+import ast
 import os
 import logging
 import time
@@ -36,6 +36,34 @@ class EvalFops:
 
     def device_characteristics(self):
         return eval(self.eval_func(_device_characteristics))
+
+    def fget(self, mcu_file, host_file, chunk_size=256):
+        """Copy from microcontroller to host"""
+        self.eval(f"f=open('{mcu_file}', 'rb')\nr=f.read")
+        with open(host_file, 'wb') as f:
+            while True:
+                data = bytearray()
+                data.extend(self.eval(f"print(r({chunk_size}))"))
+                assert data.endswith(b"\r\n")
+                try:
+                    data = ast.literal_eval(str(data[:-2], "ascii"))
+                    if not isinstance(data, bytes):
+                        raise ValueError("Not bytes")
+                except (UnicodeDecodeError, ValueError) as e:
+                    raise EvalException(f"fget: Could not interpret received data: {str(e)}")
+                if not data: break
+                f.write(data)
+        self.eval("f.close()")
+
+    def fput(self, host_file, mcu_file, chunk_size=256):
+        """Copy from host to microcontroller"""
+        self.eval(f"f=open('{mcu_file}','wb')\nw=f.write")
+        with open(host_file, 'rb') as f:
+            while True:
+                data = f.read(chunk_size)
+                if not data: break
+                self.eval(f"w({repr(data)})")
+        self.eval("f.close()")
 
 
 ##########################################################################

@@ -3,7 +3,7 @@ import sys, os
 
 
 @contextmanager
-def cd(path):
+def cd(path=os.path.expanduser(os.getenv('IOT49', '~'))):
     cwd = os.getcwd()
     os.chdir(os.path.expanduser(path))
     try:

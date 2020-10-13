@@ -1,6 +1,7 @@
 from .config_store import Config
-from termcolor import colored    # pylint: disable=import-error
 
+from termcolor import colored
+from glob import glob
 from datetime import datetime
 import os
 import logging
@@ -24,9 +25,9 @@ class EvalRsync:
         logger.debug(f"rlist {path}")
         self.__mcu_list(ListOutput(output), path)
 
-    def rdiff(self, output, path='/', projects=['base']):
-        mcu_files = self.mcu_files(output, path)
-        host_files = self.host_files(path, projects)
+    def rdiff(self, output, projects=['base'], implementation='micropython'):
+        mcu_files = self.mcu_files(output)
+        host_files = self.host_files(projects, implementation)
         # add files from host
         to_add = host_files.keys() - mcu_files.keys()
         # delete files not on host
@@ -38,6 +39,8 @@ class EvalRsync:
             _, host_time, host_size = host_files[u]
             # size < 0 indicates directory
             if (mcu_size != host_size) or ((mcu_time < host_time) and mcu_size >= 0):
+                print(f"***** update {u}:  (m {mcu_size} != h {host_size}) or (({mcu_time < host_time}) and {mcu_size >= 0})")
+                print(f"mcu_time={mcu_time}  host_time={host_time}  m-h={mcu_time - host_time}")
                 to_update.add(u)
         # convert to_add and to_update to dicts pointing to project
         return (
@@ -46,12 +49,17 @@ class EvalRsync:
             { k: host_files[k][0] for k in to_update }
         )
 
-    def rsync(self, output, path='/', projects=['base'], dry_run=True):
-        logger.debug(f"rsync {path} projects={projects}")
+    def rsync(self, output, projects=['base'], implementation='micropython', dry_run=True, upload_only=True):
+        # synchronize micrcontroller flash to host
+        #   project: list of projects to synchronize
+        #   implementation: mpy architecture
+        #   dry_run: only print out differences, do not copy any files
+        #   upload_only: do not delete files on microcontroller that are not also on host
+        logger.debug(f"rsync projects={projects}")
         if not dry_run:
             # sync mcu time to host if they differ by more than 3 seconds
             self.sync_time(3)
-        add_, del_, upd_ = self.rdiff(output, path, projects)
+        add_, del_, upd_ = self.rdiff(output, projects, implementation)
         if add_ or del_ or upd_:
             for a,p in add_.items():
                 # do not report redundant directory creation
@@ -63,7 +71,7 @@ class EvalRsync:
                      self.fput(src_file, dst_file)
             for d in del_:
                 output.ans(colored(f"DELETE  {d}\n", 'red'))
-                if not dry_run:
+                if not dry_run and not upload_only:
                     self.rm_rf(d, recursive=True)
             for u,p in upd_.items():
                 output.ans(colored(f"UPDATE  {u}\n", 'blue'))
@@ -74,51 +82,43 @@ class EvalRsync:
         else:
             output.ans("Directories match\n")
 
-    def mcu_files(self, output, path):
+    def mcu_files(self, output):
         """Dict of all files and directories on MCU.
-            name -> ()
+            name -> (level, path, mtime, size)
         """
-        if path.endswith('/'):    path = path[:-1]
-        if path.startswith('/'):  path = path[1:]
         path_output = PathOutput(output)
-        self.__mcu_list(path_output, path)
-        # output.ans('\n')
+        self.__mcu_list(path_output, '')
         return path_output.files
 
-    def host_files(self, path, projects=['base']):
-        """Dict of all files and directories on MCU.
-            name -> ()
-        """
-        if path.endswith('/'):    path = path[:-1]
-        if path.startswith('/'):  path = path[1:]
-        files = dict()
-        for proj in projects:
-            full_path = os.path.join(Config.get('host_dir', '~'), proj)
-            full_path = os.path.expanduser(full_path)
-            self.__host_list(files, full_path, proj, path)
-        return files
+    def host_files(self, projects=['base'], implementation='micropython'):
+        from iot_device import cd
+        result = {}
+        for project in projects:
+            with cd(os.path.join(Config.get('host_dir'), project)):
+                for src in glob('./**/*', recursive=True):
+                    src = os.path.normpath(src)
+                    mtime = os.path.getmtime(src)
+                    size = -1 if os.path.isdir(src) else os.path.getsize(src)
+                    if os.path.isfile(src) and src.endswith('.py'):
+                        # check if a compiled version is available
+                        mpy = src[:-3] + '.mpy'
+                        proj = f".{project}-{implementation}"
+                        mpy_file = os.path.join('..', proj, mpy)
+                        if os.path.isfile(mpy_file):
+                            mpy_mtime = os.path.getmtime(mpy_file)
+                            if mpy_mtime >= mtime:
+                                # compiled file available
+                                result.pop(src, None)
+                                result[mpy] = (proj, mpy_mtime, os.path.getsize(mpy_file))
+                                continue                
+                    result[src] = (project, mtime, size)
+        for k, v in result.items(): print(f"host_file {k:30} {v}")
+        return result
 
     def __mcu_list(self, output, path):
         """Request MCU to list files and process resuls via output objects"""
         # drop trailing and leading / from path
         self.eval_func(_mcu_list, path, 0, output=output)
-
-    def __host_list(self, files, root, project, path, level=0):
-        # add all files in root root/path to files dict
-        full_path = os.path.join(root, path)
-        if not os.path.exists(full_path): return
-        mtime = os.path.getmtime(full_path)
-        if os.path.isdir(full_path):
-            # directory
-            if len(path):
-                files[path] = (project, mtime, -1)
-            for p in os.listdir(full_path):
-                if p.startswith('.'): continue
-                self.__host_list(files, root, project, os.path.join(path, p), level+1)
-        elif os.path.isfile(full_path):
-            size = os.path.getsize(full_path)
-            # file
-            files[path] = (project, mtime, size)
 
 
 #########################################################################

@@ -53,16 +53,6 @@ class Eval:
         """Release all resources (variables and peripherals)"""
         pass
 
-    @abstractmethod
-    def fget(self, mcu_file, host_file):
-        """Copy from microcontroller to host"""
-        pass
-
-    @abstractmethod
-    def fput(self, host_file, mcu_file):
-        """Copy from host to microcontroller"""
-        pass
-
     def eval_func(self, func, *args, output=None, **kwargs):
         """Call func(*args, **kwargs) on (Micro)Python board."""
         try:
