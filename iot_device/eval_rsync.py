@@ -39,8 +39,8 @@ class EvalRsync:
             _, host_time, host_size = host_files[u]
             # size < 0 indicates directory
             if (mcu_size != host_size) or ((mcu_time < host_time) and mcu_size >= 0):
-                print(f"***** update {u}:  (m {mcu_size} != h {host_size}) or (({mcu_time < host_time}) and {mcu_size >= 0})")
-                print(f"mcu_time={mcu_time}  host_time={host_time}  m-h={mcu_time - host_time}")
+                # print(f"***** update {u}:  (m {mcu_size} != h {host_size}) or (({mcu_time < host_time}) and {mcu_size >= 0})")
+                # print(f"mcu_time={mcu_time}  host_time={host_time}  m-h={mcu_time - host_time}")
                 to_update.add(u)
         # convert to_add and to_update to dicts pointing to project
         return (
@@ -112,7 +112,7 @@ class EvalRsync:
                                 result[mpy] = (proj, mpy_mtime, os.path.getsize(mpy_file))
                                 continue                
                     result[src] = (project, mtime, size)
-        for k, v in result.items(): print(f"host_file {k:30} {v}")
+        # for k, v in result.items(): print(f"host_file {k:30} {v}")
         return result
 
     def __mcu_list(self, output, path):

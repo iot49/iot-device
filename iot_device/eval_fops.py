@@ -57,13 +57,19 @@ class EvalFops:
 
     def fput(self, host_file, mcu_file, chunk_size=256):
         """Copy from host to microcontroller"""
+        print(f"fput {host_file} -> {mcu_file}")
         self.eval(f"f=open('{mcu_file}','wb')\nw=f.write")
+        print("A")
         with open(host_file, 'rb') as f:
             while True:
+                print("B")
                 data = f.read(chunk_size)
                 if not data: break
                 self.eval(f"w({repr(data)})")
+                print("C")
+        print("D")
         self.eval("f.close()")
+        print(f"fput DONE")
 
 
 ##########################################################################
