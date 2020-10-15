@@ -79,7 +79,7 @@ class EvalRsync:
                 if not dry_run:
                     self.fput(src_file, dst_file)
         else:
-            output.ans("Directories match\n")
+            output.ans(colored("Directories match\n", 'green'))
 
     def mcu_files(self, output):
         """Dict of all files and directories on MCU.
@@ -212,10 +212,7 @@ class PathOutput(TZ):
         if line:
             kind, level, path, mtime, size = line.split(b',')
             path  = eval(path)
-            # ignore files and directories with names that start with a period
-            # these files, when created on the mcu, won't be deleted by rsync
-            if len(path)<=0 or path.startswith('.'):
-                return
+            if len(path)<=0:  return
             level = int(level)
             mtime = int(self.local2gmtime(int(mtime)))
             size  = int(size)
@@ -226,6 +223,10 @@ class PathOutput(TZ):
                     self.path_stack.append('')
                 self.path_stack[level] = path
             else:
+                # ignore files with names that start with a period
+                # these files, when created on the mcu, won't be deleted by rsync
+                if path.startswith('.'):
+                    return
                 self.files[full_path] = (mtime, size)
                 if len(self.files) > 50 and len(self.files) % 10 == 0:
                     self.output.ans('.')
