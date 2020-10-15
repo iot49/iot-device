@@ -3,8 +3,7 @@ from .config_store import Config
 from termcolor import colored
 from glob import glob
 from datetime import datetime
-import os
-import logging
+import os, time, logging
 
 logger = logging.getLogger(__file__)
 
@@ -62,13 +61,13 @@ class EvalRsync:
         add_, del_, upd_ = self.rdiff(output, projects, implementation)
         if add_ or del_ or upd_:
             for a,p in add_.items():
-                # do not report redundant directory creation
                 src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, a))
                 dst_file = a
+                # no feedback about directory creation
                 if os.path.isfile(src_file):
                     output.ans(colored(f"COPY    {a}\n", 'green'))
                 if not dry_run:
-                     self.fput(src_file, dst_file)
+                    self.fput(src_file, dst_file)
             for d in del_:
                 output.ans(colored(f"DELETE  {d}\n", 'red'))
                 if not dry_run and not upload_only:
@@ -156,7 +155,21 @@ def _mcu_list(path, level):
 #########################################################################
 # Collect output from _mcu_list
 
-class ListOutput:
+class TZ:
+    # convert micropython localtime (e.g. mtime) to gmtime
+
+    __ts = time.time()
+    __localtime_gmtime = (datetime.fromtimestamp(__ts) - datetime.utcfromtimestamp(__ts)).total_seconds()/3600
+
+    @staticmethod
+    def local2gmtime(local_time):
+        return local_time - TZ.__localtime_gmtime
+
+    @staticmethod
+    def gmtime2local(gm_time):
+        return gm_time + TZ.__localtime_gmtime
+
+class ListOutput(TZ):
 
     def __init__(self, output):
         self.output = output
@@ -172,7 +185,7 @@ class ListOutput:
             path = eval(path)
             if len(path)<=0: return
             level = int(level)
-            ts = datetime.fromtimestamp(int(mtime))
+            ts = datetime.fromtimestamp(int(self.local2gmtime(int(mtime))))
             mtime = ts.strftime("%b %d %H:%M %Y")
             if kind == b'D':
                 if level != 0:
@@ -187,7 +200,7 @@ class ListOutput:
         self.output.err(b)
 
 
-class PathOutput:
+class PathOutput(TZ):
 
     def __init__(self, output):
         self.path_stack = []
@@ -204,7 +217,7 @@ class PathOutput:
             if len(path)<=0 or path.startswith('.'):
                 return
             level = int(level)
-            mtime = int(mtime)
+            mtime = int(self.local2gmtime(int(mtime)))
             size  = int(size)
             full_path = os.path.join(*self.path_stack[:level], path)
             if kind == b'D':
