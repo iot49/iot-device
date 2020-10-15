@@ -159,7 +159,7 @@ class TZ:
     # convert micropython localtime (e.g. mtime) to gmtime
 
     __ts = time.time()
-    __localtime_gmtime = (datetime.fromtimestamp(__ts) - datetime.utcfromtimestamp(__ts)).total_seconds()/3600
+    __localtime_gmtime = (datetime.fromtimestamp(__ts) - datetime.utcfromtimestamp(__ts)).total_seconds()
 
     @staticmethod
     def local2gmtime(local_time):

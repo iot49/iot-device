@@ -38,6 +38,7 @@ class DiscoverSerial(Discover):
         added = current_ports - self._ports
         removed = self._ports - current_ports
         self._ports = current_ports
+        # logger.debug(f"scan! {current_ports}\n   added {added}\n   removed {removed}")
         # notify listeners
         for port in added:
             try:
