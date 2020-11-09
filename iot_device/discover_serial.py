@@ -47,7 +47,7 @@ class DiscoverSerial(Discover):
                 # protocols, e.g. a serial interface and an async task.
                 # Note: uid not available in remove ...
                 self._register_device(port, dev)
-            except (TimeoutError, EvalException):
+            except (TimeoutError, EvalException, SerialException):
                 # esp32 takes time to boot ...
                 self._ports.remove(port)
         for port in removed:
@@ -60,10 +60,13 @@ class DiscoverSerial(Discover):
             if port.vid in COMPATIBLE_VID:
                 ports.add(port.device)
             elif port.vid:
-                logger.info("Found {} with unknown VID {:02X} (ignored)".format(port, port.vid))
+                logger.info(f"Found {port} with unknown VID {port.vid:02X} (ignored)")
         return ports
 
     def _scanner(self, scan_rate: float):
         while True:
-            self.scan()
-            time.sleep(scan_rate)
+            try:
+                self.scan()
+                time.sleep(scan_rate)
+            except Exception as ex:
+                logger.error(f"Unhandled exception in scanner: {ex}")
