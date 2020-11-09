@@ -9,7 +9,8 @@ class EvalException(Exception):
 
 
 class Eval:
-    """Abstract class encapsulating code evaluation on microcontroller"""
+    """Abstract class encapsulating code evaluation on microcontroller, 
+    extended by ReplEval."""
 
     def __init__(self, device):
         self._device = device
