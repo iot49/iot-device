@@ -14,7 +14,7 @@ class NetDevice(Device):
     def __init__(self, id, uid, address):
         self.__socket = None
         self.__address = address
-        super().__init__(id=id, desc=f"device {uid} @ {address}", uid=uid)
+        super().__init__(id=id, desc=f"net device {uid}", uid=uid)
 
     @property
     def address(self):
