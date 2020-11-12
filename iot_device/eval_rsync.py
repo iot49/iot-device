@@ -5,7 +5,7 @@ from glob import glob
 from datetime import datetime
 import os, time, logging
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
 """

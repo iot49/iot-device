@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-import inspect, logging, time
+import os, inspect, logging, time
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
-class EvalException(Exception):
+class DeviceError(Exception):
     pass
 
 
@@ -20,13 +20,13 @@ class Eval:
         return self._device
 
     @property
-    def uid(self):
+    def uid(self) -> str:
         # Note: Device caches this, could retrieve from there
         # But - beware of recursion - Device calls Repl.uid!
         return self.eval_func(_uid)
 
     @property
-    def implementation(self):
+    def implementation(self) -> str:
         # sys.implementation.name, e.g. micropython, circuitpython
         return self.eval_func(_implementation)
 
@@ -46,15 +46,14 @@ class Eval:
         that receives results as they are sent from the microcontroller.
         Useful for interactive interfaces.
         """
-        # successful evaluation implies device is online
-        self.device.seen()   
+        pass
 
     @abstractmethod
     def softreset(self):
         """Release all resources (variables and peripherals)"""
         pass
 
-    def eval_func(self, func, *args, output=None, **kwargs):
+    def eval_func(self, func, *args, output=None, **kwargs) -> str:
         """Call func(*args, **kwargs) on (Micro)Python board."""
         try:
             logger.debug(f"eval_func: {func}({args})")
@@ -66,7 +65,7 @@ class Eval:
             func_str += 'result = ' + func.__name__ + '('
             func_str += ', '.join(args_arr + kwargs_arr)
             func_str += ')\n'
-            func_str += 'if result != None: print(result)\n'
+            func_str += 'if result: print(result)\n'
             logger.debug(f"eval_func: {func_str}")
             start_time = time.monotonic()
             result = self.eval(func_str, output)
@@ -74,7 +73,8 @@ class Eval:
                 try:
                     result = result.decode().strip()
                 except UnicodeDecodeError:
-                    pass
+                    logger.error(f"UnicodeDecodeError {result}")
+                    result = str(result)
             logger.debug(f"eval_func: {func.__name__}({repr(args)[1:-1]}) --> {result},   in {time.monotonic()-start_time:.3} s")
             return result
         except SyntaxError as se:

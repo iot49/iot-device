@@ -1,18 +1,19 @@
 from .device import Device
 from .config_store import Config
+from .eval import DeviceError
 
 from serial import Serial, SerialException
-import time
-import logging
+import os, time, logging
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+
 
 class SerialDevice(Device):
 
-    def __init__(self, port, baudrate=115200):
+    def __init__(self, desc: str, port: str, baudrate=115200):
         self.__port = port
         self.__baudrate = baudrate
-        super().__init__()
+        super().__init__(id=port, desc=desc)
 
     @property
     def address(self):
@@ -22,54 +23,42 @@ class SerialDevice(Device):
     def connection(self):
         return 'serial'
 
-    def __connect(self):
-        try:
-            self.__serial = Serial(self.__port, self.__baudrate, parity='N', timeout=0.5)
-        except SerialException as se:
-            logger.error(f"SerialDevice: __connect failed {se}")
-
     def read(self, size=1):
-        for _ in range(2):
-            try:
-                return self.__serial.read(size)
-            except (SerialException, OSError):
-                self.__connect()
-        raise SerialException("read failed")
+        return self.__serial.read(size)
 
     def read_all(self):
-        for _ in range(2):
-            try:
-                return self.__serial.read_all()
-            except (SerialException, OSError):
-                self.__connect()
-        raise SerialException("read_all failed")
+        return self.__serial.read_all()
 
     def write(self, data):
-        for _ in range(2):
-            try:
-                n = 0
-                for i in range(0, len(data), 256):
-                    n += self.__serial.write(data[i:min(i+256, len(data))])
-                    time.sleep(0.01)
-                return n
-            except (SerialException, OSError):
-                self.__connect()
-        raise SerialException("write failed")
+        n = 0
+        for i in range(0, len(data), 256):
+            n += self.__serial.write(data[i:min(i+256, len(data))])
+            time.sleep(0.01)
+        return n
 
-    def close(self):
-        self.__serial.close()
+    def flush_input(self):
+        """Flush input buffer - data from MCU"""
+        self.__serial.reset_input_buffer
 
     def __enter__(self):
-        res = super().__enter__()
-        self.__connect()
-        return res
+        try:
+            self.__serial = Serial(self.__port, self.__baudrate, parity='N', 
+                timeout=1.5,            # read timeout
+                write_timeout=1.5,
+                exclusive= True         # exclusive access mode (POSIX only)
+            )
+            return super().__enter__()
+        except (BlockingIOError, SerialException):
+            raise DeviceError(f"Device {self.address} not available (in use?)")
 
-    def __eq__(self, other):
-        return isinstance(other, SerialDevice) and self.__port == other.__port
+    def __exit__(self, type, value, traceback):
+        self.__serial.close()
+        self.__serial = None
 
     def __repr__(self) -> str:
-        return f"SerialDevice {self.name} ({self.uid}) at {self.__port}"
-
-    def __hash__(self) -> int:
-        return hash(self.__port)
-        
+        try:
+            name = self.name
+            uid = self.uid
+            return f"SerialDevice {name} ({uid}) at {self.__port}"
+        except SerialException:
+            return f"SerialDevice {self.description} at {self.__port}"

@@ -1,9 +1,7 @@
-import ast
-import os
-import logging
-import time
+from .eval import DeviceError
+import ast, os, logging, time
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
 class EvalFops:
@@ -50,7 +48,7 @@ class EvalFops:
                     if not isinstance(data, bytes):
                         raise ValueError("Not bytes")
                 except (UnicodeDecodeError, ValueError) as e:
-                    raise EvalException(f"fget: Could not interpret received data: {str(e)}")
+                    raise DeviceError(f"fget: Could not interpret received data: {str(e)}")
                 if not data: break
                 f.write(data)
         self.eval("f.close()")

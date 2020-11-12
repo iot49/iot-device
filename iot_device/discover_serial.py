@@ -1,15 +1,14 @@
 from .discover import Discover
+from .device_registry import DeviceRegistry
 from .serial_device import SerialDevice
-from .eval import EvalException
+from .eval import DeviceError
 
 from serial import SerialException
-import time
-import logging
-import serial
 import serial.tools.list_ports
-import threading
+import os, time, logging ,threading
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+
 
 # Vendor IDs
 ADAFRUIT_VID = 0x239A  # Adafruit board
@@ -25,8 +24,6 @@ class DiscoverSerial(Discover):
     def __init__(self, scan_rate: float = 0.2):
         """Start a daemon thread that continually scans ports every scan_rate seconds."""
         super().__init__()
-        # set of currently active ports
-        self._ports = set()
         th = threading.Thread(target=self._scanner, args=(scan_rate,), name="serial scanner")
         th.setDaemon(True)
         th.start()
@@ -34,34 +31,38 @@ class DiscoverSerial(Discover):
 
     def scan(self):
         """Scan for new/removed devices."""
-        current_ports = self._list_ports()
-        added = current_ports - self._ports
-        removed = self._ports - current_ports
-        self._ports = current_ports
-        # logger.debug(f"scan! {current_ports}\n   added {added}\n   removed {removed}")
+        connected_ports = self._list_usb_ports()
+        connected_devices = set(connected_ports.keys())
+        registered_devices = {
+            x.address for x in DeviceRegistry.devices() 
+            if isinstance(x, SerialDevice) }
+        removed = registered_devices - connected_devices
+        added = connected_devices - registered_devices
         # notify listeners
-        for port in added:
+        for usb_path in added:
             try:
-                dev = SerialDevice(port)
-                # A device may be accessible simulataneously via multiple
-                # protocols, e.g. a serial interface and an async task.
-                # Note: uid not available in remove ...
-                self._register_device(port, dev)
-            except (TimeoutError, EvalException, SerialException):
-                # esp32 takes time to boot ...
-                self._ports.remove(port)
-        for port in removed:
-            self._unregister_device(port)
+                port = connected_ports[usb_path]
+                product = port.product
+                if 'CP2104' in product: product = 'CP2104 (ESP32)'
+                manuf = port.manufacturer
+                if 'Adafruit' in manuf: manuf = 'Adafruit'
+                desc = f"{manuf} {product}, VID={port.vid:04X} PID={port.pid:04X}"
+                SerialDevice(desc, usb_path)
+            except (DeviceError, SerialException, BlockingIOError):
+                # device unavailable
+                pass
+        for usb_path in removed:
+            DeviceRegistry.unregister(usb_path)
 
-    def _list_ports(self):
+    def _list_usb_ports(self):
         """Set of ports with connected microcontrollers"""
-        ports = set()
+        devices = {}
         for port in serial.tools.list_ports.comports():
             if port.vid in COMPATIBLE_VID:
-                ports.add(port.device)
+                devices[port.device] = port
             elif port.vid:
                 logger.info(f"Found {port} with unknown VID {port.vid:02X} (ignored)")
-        return ports
+        return devices
 
     def _scanner(self, scan_rate: float):
         while True:
@@ -69,4 +70,5 @@ class DiscoverSerial(Discover):
                 self.scan()
                 time.sleep(scan_rate)
             except Exception as ex:
-                logger.error(f"Unhandled exception in scanner: {ex}")
+                logger.error(f"_scanner {type(ex)}: {ex}")
+                # logger.exception(f"Unhandled exception in scanner: type {type(ex)}")

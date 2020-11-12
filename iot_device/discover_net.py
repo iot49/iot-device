@@ -1,11 +1,12 @@
 from .discover import Discover
 from .net_device import NetDevice
+from .device_registry import DeviceRegistry
 
 from zeroconf import ServiceBrowser, Zeroconf
-import socket
-import logging
+import os, socket, logging
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+
 
 class DiscoverNet(Discover):
 
@@ -19,11 +20,12 @@ class DiscoverNet(Discover):
         ip = socket.inet_ntoa(info.addresses[0])
         port = info.port
         uid = info.properties.get(b'uid').decode()
-        dev = NetDevice(uid, (ip, port))
-        self._register_device(name, dev)
+        logger.debug(f"add_service for {name} @ {(ip, port)}")
+        NetDevice(id=name, uid=uid, address=(ip, port))
 
     def remove_service(self, zeroconf, type, name):
-        self._unregister_device(name)
+        logger.debug(f"remove_service for {name}")
+        DeviceRegistry.unregister(name)
 
     def update_service(self, zeroconf, type, name):
         logging.warn(f"update_service received for {name}")

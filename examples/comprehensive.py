@@ -95,16 +95,13 @@ def demo_rsync(repl):
 def main():
     logging.getLogger().setLevel(logging.INFO)
 
-    # catalog of availble devices
-    registry = DeviceRegistry()
-
     # create device scanners
-    DiscoverSerial().register_listener(registry)
-    DiscoverNet().register_listener(registry)
+    DiscoverSerial()
+    DiscoverNet()
 
     # run code on all discovered devices
     while True:
-        for dev in registry.devices():
+        for dev in DeviceRegistry.devices():
             try:
                 print(f"\n{'*'*20} {dev.name} {dev.connection} {'*'*(80-len(str(dev.name))-len(dev.connection))}")
                 with dev as repl:

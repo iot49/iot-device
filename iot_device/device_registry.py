@@ -1,49 +1,38 @@
-from .device import Device
+from abc import ABC, abstractmethod
+import os, logging, threading
 
-import logging, threading
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
-logger = logging.getLogger(__file__)
 
-class DeviceRegistry:
-    """Thread-safe registry of currently available devices."""
+class DeviceRegistry(ABC):
 
-    def __init__(self):
-        self._devices = {}
-        self._devices_lock = threading.Lock()
+    ###############################################################
+    # device registry: all currently available devices
+    # class instance
 
-    def register_device(self, id, device):
-        with self as devices:
-            if id in devices:
-                # do not modify already registered device
-                logger.warn(f"re-registering {id} -> {device}")
-            else:
-                logger.info(f"registering {id} -> {device}")
-                devices[id] = device
+    __devices = {}
+    __devices_lock = threading.Lock()
+    __listener = None
 
-    def unregister_device(self, id):
-        with self as devices:
-            if not id in devices:
-                logger.warn(f"unregistering device {id} which not in database")
-            else:
-                logger.info(f"unregistering {id}")
-                del devices[id]
+    @classmethod
+    def devices(cls) -> frozenset:
+        with cls.__devices_lock:
+            return frozenset(cls.__devices.values())
 
-    def devices(self) -> frozenset:
-        with self as devices:
-            return frozenset(devices.values())
-
-    def get_devices(self, uid) -> frozenset:
-        result = set()
-        with self as devices:
-            for d in devices.values():
+    @classmethod
+    def get_devices(cls, uid:str) -> frozenset:
+        with cls.__devices_lock:
+            result = set()
+            for d in cls.__devices.values():
                 if d.uid == uid: result.add(d)
-        return result
+            return result
 
-    def get_device(self, uid, protocol='any') -> Device:
+    @classmethod
+    def get_device(cls, uid:str, protocol='any'):
         """Return device matching uid and the protocol.
         Protocol 'any' returns any device with given uid.
         Returns None if no devices matche the specification."""
-        devs = self.get_devices(uid)
+        devs = cls.get_devices(uid)
         if devs:
             if protocol == 'any':
                 return next(iter(devs))
@@ -52,44 +41,27 @@ class DeviceRegistry:
                     if d.protocol == protocol: return d
         return None
 
-    def __enter__(self):
-        """Contextmanager returning pointer to devices in database.        
-        raises TimeoutError"""
-        if not self._devices_lock.acquire(timeout=10):
-            raise TimeoutError("DeviceRegistry failed to acquire lock")
-        return self._devices
+    @classmethod
+    def register(cls, id: str, device):
+        logger.info(f"registering {device}")
+        with cls.__devices_lock:
+            if cls.__devices.get(id):
+                logger.warn(f"re-registering device {id}")
+            cls.__devices[id] = device
+            if cls.__listener:
+                cls.__listener.register_device(id, device)
 
-    def __exit__(self, *args):
-        self._devices_lock.release()
+    @classmethod
+    def unregister(cls, id: str):
+        with cls.__devices_lock:
+            if not id in cls.__devices:
+                logger.warn(f"unregistering device {id} which not in database")
+            else:
+                logger.info(f"unregistering {id}")
+                del cls.__devices[id]
+                if cls.__listener:
+                    cls.__listener.unregister_device(id)
 
-
-
-##########################################################################
-# Example
-
-def main():
-    from .discover_serial import DiscoverSerial
-    from .discover_net import DiscoverNet
-    import sys, time
-
-    logging.getLogger().setLevel(logging.INFO)
-
-    # catalog of availble devices
-    registry = DeviceRegistry()
-
-    # create device scanners
-    DiscoverSerial().register_listener(registry)
-    DiscoverNet().register_listener(registry)
-
-    while True:
-        if registry.devices():
-            print("active devices:")
-            for d in registry.devices():
-                print(f"    {d}")
-        else:
-            print("found no devices")
-        time.sleep(1)
-
-if __name__ == "__main__":
-    # main()
-    print("*** REG")
+    @classmethod
+    def register_listener(cls, listener):
+        cls.__listener = listener

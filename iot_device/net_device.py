@@ -1,24 +1,20 @@
 from .device import Device
-from .eval import EvalException
 from .config_store import Config
 
-import socket
-import ssl
-import json
-import time
-import logging
+import os, socket, ssl, json, time, logging
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+
 
 class PasswordError(Exception):
     pass
 
 class NetDevice(Device):
 
-    def __init__(self, uid, address):
+    def __init__(self, id, uid, address):
         self.__socket = None
         self.__address = address
-        super().__init__(uid)
+        super().__init__(id=id, desc=f"device {uid} @ {address}", uid=uid)
 
     @property
     def address(self):
@@ -54,23 +50,16 @@ class NetDevice(Device):
     def write(self, data):
         self.__socket.sendall(data)
 
-    def close(self):
-        self.__socket.close()
-        self.__socket = None
-        
     def __enter__(self):
-        # acquire lock and create Repl (Rsync) object
-        repl = super().__enter__()
         self.__connect()
-        return repl
+        return super().__enter__()
 
     def __exit__(self, typ, value, traceback):
-        self.close()
-        super().__exit__(typ, value, traceback)
+        self.__socket.close()
+        self.__socket = None
 
     def __connect(self):
         # establish connection to server
-        assert self.__socket == None
         self.__socket = socket.socket()
         context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1  # optional
