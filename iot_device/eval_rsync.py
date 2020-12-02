@@ -109,7 +109,7 @@ class EvalRsync:
                                 # compiled file available
                                 result.pop(src, None)
                                 result[mpy] = (proj, mpy_mtime, os.path.getsize(mpy_file))
-                                continue                
+                                continue
                     result[src] = (project, mtime, size)
         # for k, v in result.items(): print(f"host_file {k:30} {v}")
         return result
@@ -225,7 +225,7 @@ class PathOutput(TZ):
             else:
                 # ignore files with names that start with a period
                 # these files, when created on the mcu, won't be deleted by rsync
-                if path.startswith('.'):
+                if path.startswith('.') or path == '__pycache__':
                     return
                 self.files[full_path] = (mtime, size)
                 if len(self.files) > 50 and len(self.files) % 10 == 0:

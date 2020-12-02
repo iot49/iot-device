@@ -8,9 +8,10 @@ import inspect, os, time, logging
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
-MCU_RAW_REPL      = b'\x01'    # enter raw repl
-MCU_ABORT         = b'\x03'    # abort
-MCU_RESET         = b'\x04'    # reset
+MCU_RAW_REPL      = b'\x01'    # ctrl-A enter raw repl
+MCU_FRIENDLY_REPL = b'\x02'    # ctrl-B enter friendly repl
+MCU_ABORT         = b'\x03'    # ctrl-C abort
+MCU_RESET         = b'\x04'    # ctrl-D softreset
 MCU_EVAL          = b'\r\x04'  # start evaluation (raw repl)
 EOT               = b'\x04'
 CR                = b'\r'
@@ -30,10 +31,10 @@ class ReplEval(Eval):
                 ans_ = bytearray()
                 err_ = bytearray()
                 class Output:
-                    def ans(self, val):  
+                    def ans(self, val):
                         nonlocal ans_
                         ans_ += val
-                    def err(self, val):  
+                    def err(self, val):
                         nonlocal err_
                         err_ += val
 
@@ -52,12 +53,14 @@ class ReplEval(Eval):
             self.device.write(MCU_ABORT)
             self.device.write(MCU_RESET)
             self.device.write(CR)
-            self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>')
+            # SKIP: device may be disconnected after reset and
+            #       could take some time to come back!
+            # self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>')
             logger.debug("VM reset")
         except Exception as e:
             logger.debug("Exception in softreset")
+            logger.exception("softreset: ", e)
             raise DeviceError(e)
-
 
     def __exec_part_1(self, code):
         if isinstance(code, str):

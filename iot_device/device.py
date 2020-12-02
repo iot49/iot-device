@@ -57,12 +57,12 @@ class Device(DeviceRegistry):
 
     @property
     def name(self) -> str:
-        """Device name, from mcu/base/hosts.py"""
+        """Device name, from mcu/config/hosts.py"""
         return Config.uid2hostname(self.uid)
 
     @property
     def projects(self) -> list:
-        """Projects folders of this device, from mcu/base/hosts.py"""
+        """Projects folders of this device, from mcu/config/hosts.py"""
         return Config.host_projects(self.uid)
 
     @abstractmethod

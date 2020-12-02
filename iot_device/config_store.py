@@ -67,7 +67,7 @@ class Config:
         config = default_config.copy()
         # check mtime
         iot49_dir = os.path.expanduser(os.getenv('IOT49', '~'))
-        config_file = os.path.join(iot49_dir, 'mcu/base', file)
+        config_file = os.path.join(iot49_dir, 'mcu/config', file)
         if os.path.isfile(config_file):
             mtime = os.path.getmtime(config_file)
             # check cache

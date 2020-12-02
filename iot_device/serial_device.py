@@ -7,7 +7,6 @@ import os, time, logging
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
-
 class SerialDevice(Device):
 
     def __init__(self, desc: str, port: str, baudrate=115200):
@@ -42,7 +41,7 @@ class SerialDevice(Device):
 
     def __enter__(self):
         try:
-            self.__serial = Serial(self.__port, self.__baudrate, parity='N', 
+            self.__serial = Serial(self.__port, self.__baudrate, parity='N',
                 timeout=1.5,            # read timeout
                 write_timeout=1.5,
                 exclusive= True         # exclusive access mode (POSIX only)

@@ -20,7 +20,7 @@ class DeviceRegistry(ABC):
             return frozenset(cls.__devices.values())
 
     @classmethod
-    def get_devices(cls, uid:str) -> frozenset:
+    def get_devices(cls, uid: str) -> frozenset:
         with cls.__devices_lock:
             result = set()
             for d in cls.__devices.values():
@@ -28,7 +28,7 @@ class DeviceRegistry(ABC):
             return result
 
     @classmethod
-    def get_device(cls, uid:str, protocol='any'):
+    def get_device(cls, uid: str, protocol='any'):
         """Return device matching uid and the protocol.
         Protocol 'any' returns any device with given uid.
         Returns None if no devices matche the specification."""
