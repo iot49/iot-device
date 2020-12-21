@@ -116,8 +116,8 @@ def makedirs(path):
             raise
 
 def rm_rf(path):
-    mode = os.stat(path)[0]
     try:
+        mode = os.stat(path)[0]
         if mode & 0x4000 != 0:
             for file in os.listdir(path):
                 rm_rf(path + '/' + file)
@@ -128,9 +128,7 @@ def rm_rf(path):
         if e.args[0] == 2:
             pass
         else:
-            # OSError: [Errno 2] ENOENT gets here???
-            # raise
-            pass
+            raise
 
 def cat(path):
     with open(path) as f:
