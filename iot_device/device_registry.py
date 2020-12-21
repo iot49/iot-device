@@ -43,7 +43,6 @@ class DeviceRegistry(ABC):
 
     @classmethod
     def register(cls, id: str, device):
-        logger.info(f"registering {device}")
         with cls.__devices_lock:
             if cls.__devices.get(id):
                 logger.warn(f"re-registering device {id}")

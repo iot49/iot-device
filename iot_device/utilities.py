@@ -3,15 +3,15 @@ import sys, os
 
 
 @contextmanager
-def cd(path=os.path.expanduser(os.getenv('IOT49', '~'))):
+def cd(path=os.getenv('IOT49', '~')):
     cwd = os.getcwd()
-    os.chdir(os.path.expanduser(path))
+    os.chdir(os.path.expandvars(os.path.expanduser(path)))
     try:
         yield
     finally:
         os.chdir(cwd)
-        
-        
+
+
 @contextmanager
 def redirect_stdout_stderr(out, err):
     # temporarily redirect stdout, stderr

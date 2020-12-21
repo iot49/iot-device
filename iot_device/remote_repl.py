@@ -1,4 +1,4 @@
-from .eval import Eval, DeviceError
+from .remote_exec import RemoteExec, RemoteError
 from .config_store import Config
 
 from contextlib import contextmanager
@@ -17,35 +17,31 @@ EOT               = b'\x04'
 CR                = b'\r'
 
 
-class ReplEval(Eval):
+class OutputHelper:
+    def __init__(self):
+        self.ans_ = bytearray()
+        self.err_ = bytearray()
+    def ans(self, val):
+        self.ans_ += val
+    def err(self, val):
+        self.err_ += val
 
-    def __init__(self, *args, **kwargs):
-        super(ReplEval, self).__init__(*args, **kwargs)
 
-    def eval(self, code, output=None):
+class RemoteRepl(RemoteExec):
+    """Concrete class of RemoteExec"""
+
+    def exec(self, code, output=None):
         try:
-            if output:
-                self.__exec_part_1(code)
-                self.__exec_part_2(output)
-            else:
-                ans_ = bytearray()
-                err_ = bytearray()
-                class Output:
-                    def ans(self, val):
-                        nonlocal ans_
-                        ans_ += val
-                    def err(self, val):
-                        nonlocal err_
-                        err_ += val
-
-                output = Output()
-                self.__exec_part_1(code)
-                self.__exec_part_2(output)
-                if len(err_):
-                    raise DeviceError(err_.decode())
-                return ans_
+            if not output:
+                output = OutputHelper()
+            self.__exec_part_1(code)
+            self.__exec_part_2(output)
+            if isinstance(output, OutputHelper):
+                if len(output.err_):
+                    raise RemoteError(output.err_.decode())
+                return output.ans_
         except OSError:
-            raise DeviceError("Device disconnected")
+            raise RemoteError("Device disconnected")
 
     def softreset(self):
         """Reset MicroPython VM"""
@@ -53,14 +49,14 @@ class ReplEval(Eval):
             self.device.write(MCU_ABORT)
             self.device.write(MCU_RESET)
             self.device.write(CR)
-            # SKIP: device may be disconnected after reset and
-            #       could take some time to come back!
-            # self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>')
+            # SKIP ?: device may be disconnected after reset and
+            #         take some time to reconnect
+            self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>')
             logger.debug("VM reset")
         except Exception as e:
             logger.debug("Exception in softreset")
             logger.exception("softreset: ", e)
-            raise DeviceError(e)
+            raise RemoteError(e)
 
     def __exec_part_1(self, code):
         if isinstance(code, str):
@@ -83,7 +79,7 @@ class ReplEval(Eval):
         # process result, format "OK _answer_ EOT _error_message_ EOT>"
         res = self.device.read(2)
         if res != b'OK':
-            raise DeviceError(f"Expected OK, got {res} when evaluating '{code}'")
+            raise RemoteError(f"Expected OK, got {res} when evaluating '{code}'")
 
     def __exec_part_2(self, output):
         if output:
@@ -113,5 +109,5 @@ class ReplEval(Eval):
             if len(s[1]) > 0:
                 # s[1] is exception
                 logger.debug(f"_exec_part_2 s={s} s[1]={s[1]}")
-                raise DeviceError(s[1].decode())
+                raise RemoteError(s[1].decode())
             return s[0]

@@ -1,24 +1,13 @@
 from .device_registry import DeviceRegistry
-from .eval import Eval, DeviceError
-from .repl_eval import ReplEval
-from .eval_fops import EvalFops
-from .eval_rsync import EvalRsync
+from .remote_exec import RemoteError
+from .remote_repl import RemoteRepl
+from .remote_rsync import RemoteRsync
 from .config_store import Config
 
 from abc import abstractmethod
 import os, threading, time, logging
 
-
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
-
-
-# Composed object:
-#     ReplEval provides Eval for MicroPython raw repl
-#     EvalFops adds file operations
-#     EvalRsync adds rsync, rlist capability
-class EvalFopsRsync(EvalFops, EvalRsync, ReplEval):
-    def __init__(self, device, **kwargs):
-        super(EvalFopsRsync, self).__init__(device, **kwargs)
 
 
 class Device(DeviceRegistry):
@@ -29,7 +18,7 @@ class Device(DeviceRegistry):
             self.__uid = uid
         else:
             with self as repl:
-                self.__uid = repl.uid
+                self.__uid = repl.uid()
         self.register(id, self)
 
     @property
@@ -57,13 +46,18 @@ class Device(DeviceRegistry):
 
     @property
     def name(self) -> str:
-        """Device name, from mcu/config/hosts.py"""
-        return Config.uid2hostname(self.uid)
+        """Device name, from projects/config/mcu.py"""
+        return Config.get_device(self.uid, 'name', self.uid)
 
     @property
     def projects(self) -> list:
-        """Projects folders of this device, from mcu/config/hosts.py"""
-        return Config.host_projects(self.uid)
+        """Projects folders of this device, from projects/config/mcu.py"""
+        return Config.get_device(self.uid, 'projects', ['base'])
+
+    @property
+    def root(self) -> str:
+        """"""
+        return Config.get_device(self.uid, 'root', '/')
 
     @abstractmethod
     def read(self, size=1) -> bytes:
@@ -82,13 +76,13 @@ class Device(DeviceRegistry):
 
     def read_until(self, pattern: bytes, timeout=3):
         """Read until pattern
-        Raises DeviceError
+        Raises RemoteError
         """
         result = bytearray()
         start = time.monotonic()
         while not result.endswith(pattern):
             if (time.monotonic() - start) > timeout:
-                raise DeviceError(f"Timeout reading from MCU, got {result}, expect {pattern}")
+                raise RemoteError(f"Timeout reading from MCU, got {result}, expect {pattern}")
             b = self.read(size=1)
             result.extend(b)
         return result
@@ -98,9 +92,9 @@ class Device(DeviceRegistry):
         Implement as needed, e.g. for SerialDevice."""
         pass
 
-    def __enter__(self) -> Eval:
+    def __enter__(self):
         if self.protocol == 'repl':
-            return EvalFopsRsync(self)
+            return RemoteRsync(RemoteRepl(self))
         else:
             raise NotImplementedError(f"No evaluator for protocol {self.protocol}")
 

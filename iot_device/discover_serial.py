@@ -1,7 +1,7 @@
 from .discover import Discover
 from .device_registry import DeviceRegistry
 from .serial_device import SerialDevice
-from .eval import DeviceError
+from .remote_exec import RemoteError
 
 from serial import SerialException
 import serial.tools.list_ports
@@ -34,7 +34,7 @@ class DiscoverSerial(Discover):
         connected_ports = self._list_usb_ports()
         connected_devices = set(connected_ports.keys())
         registered_devices = {
-            x.address for x in DeviceRegistry.devices() 
+            x.address for x in DeviceRegistry.devices()
             if isinstance(x, SerialDevice) }
         removed = registered_devices - connected_devices
         added = connected_devices - registered_devices
@@ -48,7 +48,7 @@ class DiscoverSerial(Discover):
                 if 'Adafruit' in manuf: manuf = 'Adafruit'
                 desc = f"{manuf} {product}, VID={port.vid:04X} PID={port.pid:04X}"
                 SerialDevice(desc, usb_path)
-            except (DeviceError, SerialException, BlockingIOError):
+            except (RemoteError, SerialException, BlockingIOError):
                 # device unavailable
                 pass
         for usb_path in removed:
@@ -70,5 +70,4 @@ class DiscoverSerial(Discover):
                 self.scan()
                 time.sleep(scan_rate)
             except Exception as ex:
-                logger.error(f"_scanner {type(ex)}: {ex}")
-                # logger.exception(f"Unhandled exception in scanner: type {type(ex)}")
+                logger.exception(f"Unhandled exception in scanner: type {type(ex)}", ex)

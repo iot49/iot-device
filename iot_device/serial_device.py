@@ -1,6 +1,6 @@
 from .device import Device
 from .config_store import Config
-from .eval import DeviceError
+from .remote_exec import RemoteError
 
 from serial import Serial, SerialException
 import os, time, logging
@@ -48,7 +48,7 @@ class SerialDevice(Device):
             )
             return super().__enter__()
         except (BlockingIOError, SerialException):
-            raise DeviceError(f"Device {self.address} not available (in use?)")
+            raise RemoteError(f"Device {self.address} not available (in use?)")
 
     def __exit__(self, type, value, traceback):
         self.__serial.close()
@@ -59,5 +59,5 @@ class SerialDevice(Device):
             name = self.name
             uid = self.uid
             return f"SerialDevice {name} ({uid}) at {self.__port}"
-        except SerialException:
+        except Exception as e: # SerialException as e:
             return f"SerialDevice {self.description} at {self.__port}"
