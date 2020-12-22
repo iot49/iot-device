@@ -1,6 +1,6 @@
 from .remote_exec import RemoteError
 from .remote_functions import RemoteFunctions
-import logging, ast, time, os
+import logging, time, os, ast
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
@@ -65,7 +65,7 @@ class RemoteFileOps(RemoteFunctions):
                     if not isinstance(data, bytes):
                         raise ValueError("Not bytes")
                 except (UnicodeDecodeError, ValueError) as e:
-                    raise DeviceError(f"fget: Could not interpret received data: {str(e)}")
+                    raise RemoteError(f"fget: Could not interpret received data: {str(e)}")
                 if not data: break
                 f.write(data)
         self.exec("f.close()")
@@ -87,6 +87,7 @@ class RemoteFileOps(RemoteFunctions):
     def disable_write_protection(self):
         # disable CircuitPython flash write protection
         self._remote_exec(f"unprotect()")
+
 
 
 ###############################################################################

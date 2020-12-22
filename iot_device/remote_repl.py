@@ -26,16 +26,15 @@ class OutputHelper:
     def err(self, val):
         self.err_ += val
 
-
 class RemoteRepl(RemoteExec):
     """Concrete class of RemoteExec"""
 
-    def exec(self, code, output=None):
+    def exec(self, code, output=None, timeout=None):
         try:
+            self.__exec_part_1(code)
             if not output:
                 output = OutputHelper()
-            self.__exec_part_1(code)
-            self.__exec_part_2(output)
+            self.__exec_part_2(output, timeout)
             if isinstance(output, OutputHelper):
                 if len(output.err_):
                     raise RemoteError(output.err_.decode())
@@ -43,8 +42,9 @@ class RemoteRepl(RemoteExec):
         except OSError:
             raise RemoteError("Device disconnected")
 
-    def softreset(self):
-        """Reset MicroPython VM"""
+    # superseded by machine.reset()
+    def repl_reset(self):
+        """Reset MicroPython VM via repl"""
         try:
             self.device.write(MCU_ABORT)
             self.device.write(MCU_RESET)
@@ -55,7 +55,7 @@ class RemoteRepl(RemoteExec):
             logger.debug("VM reset")
         except Exception as e:
             logger.debug("Exception in softreset")
-            logger.exception("softreset: ", e)
+            logger.exception("softreset: {e}")
             raise RemoteError(e)
 
     def __exec_part_1(self, code):
@@ -81,10 +81,11 @@ class RemoteRepl(RemoteExec):
         if res != b'OK':
             raise RemoteError(f"Expected OK, got {res} when evaluating '{code}'")
 
-    def __exec_part_2(self, output):
+    def __exec_part_2(self, output, timeout=None):
+        stop = time.monotonic() + (timeout if timeout else 1e20)
         if output:
             logger.debug(f"_exec_part_2 ...")
-            while True:
+            while time.monotonic() < stop:
                 ans = self.device.read_all().split(EOT)
                 if len(ans[0]): output.ans(ans[0])
                 if len(ans) > 1:      # 1st EOT
@@ -93,14 +94,14 @@ class RemoteRepl(RemoteExec):
                         return
                     break             # look for 2nd EOT below
             # read error message, if any
-            while True:
+            while time.monotonic() < stop:
                 ans = self.device.read_all().split(EOT)
                 if len(ans[0]): output.err(ans[0])
                 if len(ans) > 1:      # 2nd EOT
                     break
         else:
             result = bytearray()
-            while True:
+            while time.monotonic() < stop:
                 result.extend(self.device.read_all())
                 if result.count(EOT) > 1:
                     break

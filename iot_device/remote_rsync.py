@@ -35,7 +35,8 @@ class RemoteRsync(RemoteRlist):
             # self.disable_write_protection()
             self.sync_time(3)
         mcu_files = self.rlist(self.device.root, output)
-        logger.error("hack exclude boot_out.txt")
+        # ok for now, let's wait to see if other cases crop up
+        # hack exclude boot_out.txt
         mcu_files.pop("boot_out.txt", None)
 
         host_files = self._host_files(projects, include_patterns, exclude_patterns, implementation)

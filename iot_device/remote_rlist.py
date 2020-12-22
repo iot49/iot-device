@@ -63,7 +63,7 @@ class RlistOutput(TZ):
         # should process with readline
         for line in b.split(b'\r\n'):
             if not line.strip(): continue
-            logger.error(f"line = {line}")
+            # logger.error(f"line = {line}")
             kind, level, path, mtime, size = line.split(b',')
             path = eval(path)
             if len(path)<=0: continue

@@ -9,10 +9,6 @@ class RemoteFunctions:
     def __init__(self, remote_exec):
         self._remote = remote_exec
 
-    def eval_exec(self, code: str, output=None) -> None:
-        """Try eval, then exec if the former fails"""
-        self.exec(_eval_exec.format(repr(code)), output)
-
     def uid(self):
         """uid of remote, no permanent code upload"""
         return self.exec(_uid).decode()
@@ -35,11 +31,15 @@ class RemoteFunctions:
 
     Hence the delegates below.
     """
-    def exec(self, code, output=None):
-        return self._remote.exec(code, output)
+    def exec(self, code, output=None, timeout=None):
+        return self._remote.exec(code, output, timeout)
 
-    def softreset(self):
-        self._remote.softreset()
+    def eval_exec(self, code: str, output=None, timeout=None) -> None:
+        """Try eval, then exec if the former fails"""
+        self._remote.eval_exec(code, output, timeout)
+
+    def softreset(self, output):
+        self._remote.softreset(output)
 
     @property
     def device(self):
@@ -49,26 +49,6 @@ class RemoteFunctions:
 
 ###############################################################################
 # code snippets (run on remote)
-
-
-# NameError clause if for ports that don't support compile
-# (CircuitPython)
-
-_eval_exec = """
-_iot49_ = {}
-try:
-    eval(compile(_iot49_, '<string>', 'single'))
-except SyntaxError:
-    exec(_iot49_)
-except NameError:
-    try:
-        print(eval(_iot49_))
-    except SyntaxError:
-        exec(_iot49_)
-finally:
-    del _iot49_
-"""
-
 
 _uid = """
 try:
