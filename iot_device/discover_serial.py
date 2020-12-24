@@ -1,7 +1,5 @@
 from .discover import Discover
 from .device_registry import DeviceRegistry
-from .serial_device import SerialDevice
-from .remote_exec import RemoteError
 
 from serial import SerialException
 import serial.tools.list_ports
@@ -29,45 +27,14 @@ class DiscoverSerial(Discover):
         th.start()
         self._scan_thread = th
 
-    def scan(self):
-        """Scan for new/removed devices."""
-        connected_ports = self._list_usb_ports()
-        connected_devices = set(connected_ports.keys())
-        registered_devices = {
-            x.address for x in DeviceRegistry.devices()
-            if isinstance(x, SerialDevice) }
-        removed = registered_devices - connected_devices
-        added = connected_devices - registered_devices
-        # notify listeners
-        for usb_path in added:
-            try:
-                port = connected_ports[usb_path]
-                product = port.product
-                if 'CP2104' in product: product = 'CP2104 (ESP32)'
-                manuf = port.manufacturer
-                if 'Adafruit' in manuf: manuf = 'Adafruit'
-                desc = f"{manuf} {product}, VID={port.vid:04X} PID={port.pid:04X}"
-                SerialDevice(desc, usb_path)
-            except (RemoteError, SerialException, BlockingIOError):
-                # device unavailable
-                pass
-        for usb_path in removed:
-            DeviceRegistry.unregister(usb_path)
-
-    def _list_usb_ports(self):
-        """Set of ports with connected microcontrollers"""
-        devices = {}
-        for port in serial.tools.list_ports.comports():
-            if port.vid in COMPATIBLE_VID:
-                devices[port.device] = port
-            elif port.vid:
-                logger.info(f"Found {port} with unknown VID {port.vid:02X} (ignored)")
-        return devices
-
     def _scanner(self, scan_rate: float):
         while True:
             try:
-                self.scan()
+                for port in serial.tools.list_ports.comports():
+                    if port.vid in COMPATIBLE_VID:
+                        DeviceRegistry.register(f"serial://{port.device}", max_age=2*scan_rate)
+                    elif port.vid:
+                        logger.info(f"Found {port} with unknown VID {port.vid:02X} (ignored)")
                 time.sleep(scan_rate)
             except Exception as ex:
                 logger.exception(f"Unhandled exception in scanner: type {type(ex)}", ex)

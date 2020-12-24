@@ -1,5 +1,5 @@
-from .remote_exec import RemoteError
-from .remote_rlist import RemoteRlist
+from .eval import RemoteError
+from .eval_rlist import EvalRlist
 from .config_store import Config
 from .utilities import cd
 
@@ -11,7 +11,8 @@ import time, os, logging
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
-class RemoteRsync(RemoteRlist):
+class EvalRsync(EvalRlist):
+    """Add remote file synchronization"""
 
     def rsync(self, output, *,
             mcu_root = '/',

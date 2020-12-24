@@ -1,5 +1,5 @@
-from .remote_exec import RemoteError
-from .remote_file_ops import RemoteFileOps
+from .eval import RemoteError
+from .eval_file_ops import EvalFileOps
 from datetime import datetime
 from termcolor import colored
 
@@ -7,10 +7,11 @@ import time, os, logging
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
-class RemoteRlist(RemoteFileOps):
+class EvalRlist(EvalFileOps):
+    """Add file listing capabilities"""
 
     def rlist(self, path, output=None, show=False):
-        logger.error("rlist")
+        """Return and opionally display files stored on remote"""
         out = RlistOutput(output, show)
         self.exec('import os')
         cwd = self.exec('print(os.getcwd(), end="")').decode()

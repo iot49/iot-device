@@ -1,0 +1,66 @@
+from .eval import Eval, Output, RemoteError
+import os, logging
+
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+
+
+class EvalDefaults(Eval):
+    """Default implementations for select abstract methods of Eval"""
+
+    def uid(self):
+        """uid of remote, no permanent code upload"""
+        return self.exec(_uid).decode()
+
+    def implementation(self):
+        return self.exec("import sys; print(sys.implementation.name, end='')").decode()
+
+    def platform(self):
+        return self.exec("import sys; print(sys.platform, end='')").decode()
+
+    def eval_exec(self, code: str, output:Output=None, timeout=None) -> None:
+        """Try eval, then exec if the former fails"""
+        self.exec(_eval_exec.format(repr(code)), output, timeout)
+
+    def softreset(self, output:Output=None, timeout=5):
+        self.exec(_softreset, output=output, timeout=timeout)
+
+
+###############################################################################
+# code snippets (run on remote)
+
+_uid = """
+try:
+    import machine
+    print(":".join("{:02x}".format(x) for x in machine.unique_id()), end="")
+except:
+    import microcontroller
+    print(":".join("{:02x}".format(x) for x in microcontroller.cpu.uid), end="")
+"""
+
+# NameError clause if for ports that don't support compile
+# (CircuitPython)
+
+_eval_exec = """
+_iot49_ = {}
+try:
+    eval(compile(_iot49_, '<string>', 'single'))
+except SyntaxError:
+    exec(_iot49_)
+except NameError:
+    try:
+        print(eval(_iot49_))
+    except SyntaxError:
+        exec(_iot49_)
+finally:
+    del _iot49_
+"""
+
+
+_softreset = """
+try:
+    import microcontroller
+    microcontroller.reset()
+except ImportError:
+    import machine
+    machine.reset()
+"""

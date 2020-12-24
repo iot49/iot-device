@@ -14,6 +14,7 @@ class DiscoverNet(Discover):
         """Find & serve devices advertised online using zeroconf"""
         super().__init__()
         ServiceBrowser(Zeroconf(), type_="_repl._tcp.local.", handlers=self)
+        ServiceBrowser(Zeroconf(), type_="_exec._tcp.local.", handlers=self)
 
     def add_service(self, zeroconf, type, name):
         info = zeroconf.get_service_info(type, name)

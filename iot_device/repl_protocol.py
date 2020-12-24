@@ -1,4 +1,5 @@
-from .remote_exec import RemoteExec, RemoteError
+from .eval import RemoteError, Output, OutputHelper
+from .eval_rsync import EvalRsync
 from .config_store import Config
 
 from contextlib import contextmanager
@@ -17,19 +18,13 @@ EOT               = b'\x04'
 CR                = b'\r'
 
 
-class OutputHelper:
-    def __init__(self):
-        self.ans_ = bytearray()
-        self.err_ = bytearray()
-    def ans(self, val):
-        self.ans_ += val
-    def err(self, val):
-        self.err_ += val
+class ReplProtocol(EvalRsync):
+    """Concrete class of Eval (implements exec)"""
 
-class RemoteRepl(RemoteExec):
-    """Concrete class of RemoteExec"""
+    def __init__(self, device):
+        super().__init__(device)
 
-    def exec(self, code, output=None, timeout=None):
+    def exec(self, code, output:Output=None, timeout=None):
         try:
             self.__exec_part_1(code)
             if not output:

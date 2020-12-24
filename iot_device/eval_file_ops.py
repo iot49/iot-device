@@ -1,11 +1,13 @@
-from .remote_exec import RemoteError
-from .remote_functions import RemoteFunctions
+from .eval import Output, RemoteError
+from .eval_defaults import EvalDefaults
 import logging, time, os, ast
+
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
-class OutputWrapper:
-    def __init__(self, output):
+class OutputWrapper(Output):
+    """Forward output but raise exception in case of error"""
+    def __init__(self, output:Output):
         self.output = output
     def ans(self, val):
         if self.output:
@@ -13,28 +15,20 @@ class OutputWrapper:
     def err(self, val):
         raise RemoteError(val)
 
-class RemoteFileOps(RemoteFunctions):
+class EvalFileOps(EvalDefaults):
+    """Add file system operations"""
 
-    def _remote_exec(self, code, output=None):
-        try:
-            return self._remote.exec(f"exec({repr(code)}, __iot49__)", OutputWrapper(output))
-        except RemoteError:
-            # upload function code
-            self._remote.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
-            # try again ...
-            return self._remote.exec(f"exec({repr(code)}, __iot49__)", output)
-
-    def makedirs(self, path):
+    def makedirs(self, path:str):
         """Make all directories required for path. No-op if directories exist."""
         self.disable_write_protection()
         self._remote_exec(f"makedirs({repr(path)})")
 
-    def rm_rf(self, path):
+    def rm_rf(self, path:str):
         """rm -rf path"""
         self.disable_write_protection()
         self._remote_exec(f"rm_rf({repr(path)})")
 
-    def cat(self, path, output):
+    def cat(self, path:str, output:Output):
         """Show contents of path on console"""
         self._remote_exec(f"cat({repr(path)})", output)
 
@@ -45,14 +39,14 @@ class RemoteFileOps(RemoteFunctions):
             st += (-1, )
         return st
 
-    def sync_time(self, tolerance=5):
+    def sync_time(self, tolerance:float=5):
         """Synchronize mcu time to host if they differ by more than tolerance seconds"""
         self._remote_exec(f"set_time({tuple(time.localtime())}, {tolerance})")
 
-    def rlist(self, path, output=None):
+    def rlist(self, path:str, output:Output=None):
         return self._remote_exec(f"rlist({repr(path)})", output)
 
-    def fget(self, mcu_file, host_file, chunk_size=256):
+    def fget(self, mcu_file:str, host_file:str, chunk_size:int=256):
         """Copy from microcontroller to host"""
         self.exec(f"f=open('{mcu_file}', 'rb')\nr=f.read")
         with open(host_file, 'wb') as f:
@@ -70,7 +64,7 @@ class RemoteFileOps(RemoteFunctions):
                 f.write(data)
         self.exec("f.close()")
 
-    def fput(self, host_file, mcu_file, chunk_size=256):
+    def fput(self, host_file:str, mcu_file:str, chunk_size:int=256):
         """Copy from host to microcontroller"""
         logger.error(f"fput({host_file}, {mcu_file})")
         self.disable_write_protection()
@@ -87,6 +81,16 @@ class RemoteFileOps(RemoteFunctions):
     def disable_write_protection(self):
         # disable CircuitPython flash write protection
         self._remote_exec(f"unprotect()")
+
+    def _remote_exec(self, code:str, output:Output=None):
+        """Execute code on remote; upload code if required"""
+        try:
+            return self.exec(f"exec({repr(code)}, __iot49__)", OutputWrapper(output))
+        except RemoteError:
+            # upload function code
+            self.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
+            # try again ...
+            return self.exec(f"exec({repr(code)}, __iot49__)", output)
 
 
 
