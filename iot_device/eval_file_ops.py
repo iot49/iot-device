@@ -176,9 +176,10 @@ def rlist(path, level=0):
     fsize = stat[6]
     mtime = stat[7] + t_off
     if stat[0] & 0x4000:
-        print("D,{},{},{},0".format(level, repr(path), mtime))
         os.chdir(path)
-        for p in sorted(os.listdir()):
+        d = os.listdir()
+        print("D,{},{},{},{}".format(level, repr(path), mtime, len(d)))
+        for p in sorted(d):
             if p.startswith('.'): continue
             rlist(p, level+1)
         try:

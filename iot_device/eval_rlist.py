@@ -64,7 +64,7 @@ class RlistOutput(TZ):
         # should process with readline
         for line in b.split(b'\r\n'):
             if not line.strip(): continue
-            # logger.error(f"line = {line}")
+            # print(f"line = {line}")
             kind, level, path, mtime, size = line.split(b',')
             path = eval(path)
             if len(path)<=0: continue
@@ -74,9 +74,9 @@ class RlistOutput(TZ):
             mtime_fmt = datetime.fromtimestamp(mtime).strftime("%b %d %H:%M %Y")
             full_path = os.path.join(*self._path_stack[:level], path)
             if kind == b'D':
-                # omit directories - otherwise rsync will delete them (and their contents)
-                # drawback presumably that empty directories won't be deleted
-                # self._files[full_path] = (mtime, -1)
+                if size == 0:
+                    # empty directory
+                    self._files[full_path] = (mtime, -1)
                 while len(self._path_stack) < level+1:
                     self._path_stack.append('')
                 self._path_stack[level] = path

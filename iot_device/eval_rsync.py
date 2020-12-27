@@ -51,17 +51,17 @@ class EvalRsync(EvalRlist):
                     output.ans(colored(f"COPY    {a}\n", 'green'))
                 if not dry_run:
                     self.fput(src_file, dst_file)
-            for d in del_:
-                if not upload_only:
-                    output.ans(colored(f"DELETE  {d}\n", 'red'))
-                    if not dry_run:
-                        self.rm_rf(d)
             for u,p in upd_.items():
                 src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, u))
                 dst_file = u
                 output.ans(colored(f"UPDATE  {u}\n", 'blue'))
                 if not dry_run:
                     self.fput(src_file, dst_file)
+            for d in del_:
+                if not upload_only:
+                    output.ans(colored(f"DELETE  {d}\n", 'red'))
+                    if not dry_run:
+                        self.rm_rf(d)
         else:
             output.ans(colored("Directories match\n", 'green'))
 

@@ -13,7 +13,7 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 class Config:
 
-    __CONFIG_FOLDER = os.path.expanduser(os.getenv('IOT49', '~'))
+    __CONFIG_FOLDER = os.path.expanduser(os.getenv('IOT49', '~/iot49'))
     __CONFIG_CACHE = {}
     __DEFAULT_KEY = {
         'config.py': 'value',
@@ -50,8 +50,7 @@ class Config:
         """Load configuration from cache or disk."""
         config = {}
         # check mtime
-        iot49_dir = os.path.expanduser(os.getenv('IOT49', '~'))
-        config_file = os.path.join(iot49_dir, 'projects/config', file)
+        config_file = os.path.join(Config.__CONFIG_FOLDER, 'config', file)
         if os.path.isfile(config_file):
             mtime = os.path.getmtime(config_file)
             # check cache
@@ -71,8 +70,7 @@ def device(**kwargs):
     devices[kwargs['uid']]  = kwargs
     devices[kwargs['name']] = kwargs
                 """, config)
-                host_dir = os.path.expanduser(os.getenv('IOT49', '~'))
-                exec(f"host_dir = '{host_dir}/projects'", config)
+                exec(f"host_dir = '{Config.__CONFIG_FOLDER}'", config)
                 with open(config_file) as f:
                     exec(f.read(), config)
                 del config['__builtins__']

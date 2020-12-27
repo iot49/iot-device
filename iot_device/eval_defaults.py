@@ -48,7 +48,9 @@ except SyntaxError:
     exec(_iot49_)
 except NameError:
     try:
-        print(eval(_iot49_))
+        r = eval(_iot49_)
+        if r:
+            print(r)
     except SyntaxError:
         exec(_iot49_)
 finally:

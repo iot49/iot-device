@@ -20,13 +20,13 @@ class DiscoverNet(Discover):
         info = zeroconf.get_service_info(type, name)
         ip = socket.inet_ntoa(info.addresses[0])
         port = info.port
-        uid = info.properties.get(b'uid').decode()
-        logger.debug(f"add_service for {name} @ {(ip, port)}")
-        NetDevice(id=name, uid=uid, address=(ip, port))
-
-    def remove_service(self, zeroconf, type, name):
-        logger.debug(f"remove_service for {name}")
-        DeviceRegistry.unregister(name)
+        DeviceRegistry.register(f"{self.scheme(type)}://{port.device}")
 
     def update_service(self, zeroconf, type, name):
-        logging.warn(f"update_service received for {name}")
+        add_serice(self, zeroconf, type, name)
+
+    def remove_service(self, zeroconf, type, name):
+        DeviceRegistry.register(f"{self.scheme(type)}://{port.device}")
+
+    def scheme(self, type):
+        return type.split('.')[0][1:]
