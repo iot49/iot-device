@@ -51,6 +51,7 @@ class RlistOutput(TZ):
         self._level_offset = 0
         self._path_stack = []
         self._files = {}
+        self._line_buffer = bytes()
 
     @property
     def files(self):
@@ -61,9 +62,9 @@ class RlistOutput(TZ):
 
     def ans(self, b):
         # b could be any fragment or combination of lines!
-        # should process with readline
-        for line in b.split(b'\r\n'):
-            if not line.strip(): continue
+        self._line_buffer += b
+        while b'\r\n' in self._line_buffer:
+            line, self._line_buffer = self._line_buffer.split(b'\r\n', 1)
             # print(f"line = {line}")
             kind, level, path, mtime, size = line.split(b',')
             path = eval(path)
