@@ -35,6 +35,11 @@ class Config:
         return c
 
     @staticmethod
+    def get_secret(name, default=None):
+        secrets = Config.get_config('../secrets/secrets.py')
+        return secrets.get(name, default)
+
+    @staticmethod
     def get_device(name_or_uid, attribute, default=None):
         """Get device attribute
         Examples:

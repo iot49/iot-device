@@ -40,6 +40,17 @@ class ExecProtocol(EvalRsync):
     def eval_exec(self, code, output:Output=None, timeout=None):
         return self._remote_eval("eval", code, output, timeout)
 
+    def softreset(self):
+        # send the code but don't wait for the result
+        from .device_registry import DeviceRegistry
+        url = self.device.url
+        code = _softreset
+        self.device.write(f"{'exec'}\x04{len(code)}\n".encode())
+        self.device.write(code.encode())
+        # give device time to dis- and then reconnect
+        DeviceRegistry.unregister(url)
+        DeviceRegistry.get_device(url, timeout=10)
+
     def _remote_eval(self, instruction, code, output, timeout):
         if not timeout: timeout = 1e20
         if not output: output = OutputHelper()
@@ -94,3 +105,14 @@ class ExecProtocol(EvalRsync):
                 data = f.read(chunk_size)
                 if not data: break
                 self.device.write(data)
+
+
+
+_softreset = """\
+try:
+    import microcontroller
+    microcontroller.reset()
+except ImportError:
+    import machine
+    machine.reset()
+"""

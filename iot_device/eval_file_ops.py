@@ -1,19 +1,10 @@
-from .eval import Output, RemoteError
+from .eval import Output, RemoteError, OutputHelper
 from .eval_defaults import EvalDefaults
 import logging, time, os, ast
 
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
-class OutputWrapper(Output):
-    """Forward output but raise exception in case of error"""
-    def __init__(self, output:Output):
-        self.output = output
-    def ans(self, val):
-        if self.output:
-            self.output.ans(val)
-    def err(self, val):
-        raise RemoteError(val)
 
 class EvalFileOps(EvalDefaults):
     """Add file system operations"""
@@ -34,7 +25,10 @@ class EvalFileOps(EvalDefaults):
 
     def get_time(self):
         """Get struct time from mcu"""
-        st = self._remote_exec(f"get_time()").decode()
+        st = self._remote_exec(f"get_time()")
+        if not st:
+            raise RemoteError(f"Cannot read time from {self.device.name}")
+        st = eval(st.decode())
         if len(st) < 9:
             st += (-1, )
         return st
@@ -84,14 +78,27 @@ class EvalFileOps(EvalDefaults):
 
     def _remote_exec(self, code:str, output:Output=None):
         """Execute code on remote; upload code if required"""
+        if output == None:
+            output = OutputHelper()
         try:
-            return self.exec(f"exec({repr(code)}, __iot49__)", OutputWrapper(output))
-        except RemoteError:
+            self.exec(f"exec({repr(code)}, __iot49__)", output)
+            if isinstance(output, OutputHelper):
+                if len(output.err_):
+                    raise RemoteError(output.err_.decode())
+                return output.ans_
+        except RemoteError as e:
+            if not ('__iot49__' in e.args[0]):
+                raise
+            if isinstance(output, OutputHelper):
+                output = OutputHelper()
             # upload function code
             self.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
             # try again ...
-            return self.exec(f"exec({repr(code)}, __iot49__)", output)
-
+            self.exec(f"exec({repr(code)}, __iot49__)", output)
+            if isinstance(output, OutputHelper):
+                if len(output.err_):
+                    raise RemoteError(output.err_.decode())
+                return output.ans_
 
 
 ###############################################################################
@@ -144,7 +151,7 @@ def cat(path):
             print(line, end="")
 
 def get_time():
-    print(time.localtime(), end="")
+    print(tuple(time.localtime()), end="")
 
 def set_time(st, tolerance=5):
     host  = time.mktime(st)

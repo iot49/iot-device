@@ -20,6 +20,7 @@ class Device(ABC):
         self._url = url
         # connect to device and retrieve it's uid
         # raise error if uid cannot be retrieved
+        self._uid = '?'
         with self as repl:
             self._uid = repl.uid()
 

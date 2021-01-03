@@ -54,15 +54,17 @@ class NetDevice(Device):
         # establish connection to server
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         host, port = self.address.split(':')
-        try:
-            self.__socket.connect((host, int(port)))
-        except ConnectionResetError:
-            raise RemoteError(f"Cannot connect to {self.url}")
+        # don't wait long for the connection
+        self.__socket.settimeout(2)
+        self.__socket.connect((host, int(port)))
+        # give more time for later communication, eg. fetching results
+        self.__socket.settimeout(10)
         self.__socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.__socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # password check
-        msg = { 'password': Config.get('password', 'no_password') }
-        self.write(json.dumps(msg).encode())
+        msg = { 'password': Config.get_secret('net_pwd', '???') }
+        msg = json.dumps(msg).encode()
+        self.write(msg)
         self.write(b'\n')
         msg = self.read_all()
         if msg != b'ok':

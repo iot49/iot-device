@@ -3,14 +3,22 @@ from iot_device import Config
 
 def main():
 
-
     print("\nUID --> Hostname:")
     uid = [ 'c7:9d:75:c8:7a:14:1d:b6', '30:ae:a4:1a:2c:3c', 'weird:uid:09:07:44' ]
     for u in uid:
         print("  {:40}  {}".format(u, Config.get_device(u, 'name')))
 
+    print("\nSecrets:")
+    queries = [
+        ('net_pwd', None),
+        ('wifi_ssid', '1234'),
+        ('wifi_pwd', 'none ????'),
+        ('alsfkj fasdlkfj ', 'surely not defined!')
+    ]
+    for q in queries:
+        print("  {:20}  {}".format(q[0], Config.get_secret(*q)))
 
-    print("Queries:")
+    print("\nQueries:")
     queries = [
         ('project_includes', None),
         ('server_port', '1234'),

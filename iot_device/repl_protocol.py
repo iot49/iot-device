@@ -37,6 +37,14 @@ class ReplProtocol(EvalRsync):
         except OSError:
             raise RemoteError("Device disconnected")
 
+    def softreset(self, output:Output=None, timeout=5):
+        from .device_registry import DeviceRegistry
+        url = self.device.url
+        self.__exec_part_1(_softreset)
+        # give device time to dis- and then reconnect
+        DeviceRegistry.unregister(url)
+        DeviceRegistry.get_device(url, timeout=10)
+
     # superseded by machine.reset()
     def repl_reset(self):
         """Reset MicroPython VM via repl"""
@@ -71,12 +79,12 @@ class ReplProtocol(EvalRsync):
             time.sleep(0.01)
         self.device.write(b'\x04')
 
+    def __exec_part_2(self, output, timeout=None):
         # process result, format "OK _answer_ EOT _error_message_ EOT>"
         res = self.device.read(2)
         if res != b'OK':
-            raise RemoteError(f"Expected OK, got {res} when evaluating '{code}'")
+            raise RemoteError(f"Expected OK, got {res}")
 
-    def __exec_part_2(self, output, timeout=None):
         stop = time.monotonic() + (timeout if timeout else 1e20)
         if output:
             logger.debug(f"_exec_part_2 ...")
@@ -107,3 +115,13 @@ class ReplProtocol(EvalRsync):
                 logger.debug(f"_exec_part_2 s={s} s[1]={s[1]}")
                 raise RemoteError(s[1].decode())
             return s[0]
+
+
+_softreset = """\
+try:
+    import microcontroller
+    microcontroller.reset()
+except ImportError:
+    import machine
+    machine.reset()
+"""

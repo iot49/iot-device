@@ -13,6 +13,18 @@ class RemoteError(Exception):
                 pass
         super().__init__(msg)
 
+    @property
+    def traceback(self):
+        return self.args[0]
+
+    @property
+    def msg(self):
+        try:
+            return self.args[0].strip().split('\n')[-1]
+        except:
+            return self.args[0]
+
+
 
 class Output(ABC):
     """Callbacks for remote code evaluation"""
@@ -60,5 +72,5 @@ class Eval(ABC):
         """Try eval, then exec if the former fails"""
 
     @abstractmethod
-    def softreset(self, output:Output=None, timeout=5) -> None:
+    def softreset(self) -> None:
         """Reset micropython VM"""

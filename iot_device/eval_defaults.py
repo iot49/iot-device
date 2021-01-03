@@ -21,9 +21,6 @@ class EvalDefaults(Eval):
         """Try eval, then exec if the former fails"""
         self.exec(_eval_exec.format(repr(code)), output, timeout)
 
-    def softreset(self, output:Output=None, timeout=5):
-        self.exec(_softreset, output=output, timeout=timeout)
-
 
 ###############################################################################
 # code snippets (run on remote)
@@ -55,14 +52,4 @@ except NameError:
         exec(_iot49_)
 finally:
     del _iot49_
-"""
-
-
-_softreset = """
-try:
-    import microcontroller
-    microcontroller.reset()
-except ImportError:
-    import machine
-    machine.reset()
 """
