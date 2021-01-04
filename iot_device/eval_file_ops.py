@@ -1,6 +1,6 @@
 from .eval import Output, RemoteError, OutputHelper
 from .eval_defaults import EvalDefaults
-import logging, time, os, ast
+import logging, time, os, io, ast
 
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
@@ -78,28 +78,32 @@ class EvalFileOps(EvalDefaults):
 
     def _remote_exec(self, code:str, output:Output=None):
         """Execute code on remote; upload code if required"""
-        if output == None:
-            output = OutputHelper()
-        try:
-            self.exec(f"exec({repr(code)}, __iot49__)", output)
-            if isinstance(output, OutputHelper):
-                if len(output.err_):
-                    raise RemoteError(output.err_.decode())
-                return output.ans_
-        except RemoteError as e:
-            if not ('__iot49__' in e.args[0]):
-                raise
-            if isinstance(output, OutputHelper):
-                output = OutputHelper()
-            # upload function code
+        out = OutputWrapper(output)
+        self.exec(f"exec({repr(code)}, __iot49__)", out)
+        if b'__iot49__' in out.err_.getvalue():
+            # reset error
+            out.ans_ = io.BytesIO()
+            out.err_ = io.BytesIO()
+            # upload __iot49__ and try again
             self.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
-            # try again ...
-            self.exec(f"exec({repr(code)}, __iot49__)", output)
-            if isinstance(output, OutputHelper):
-                if len(output.err_):
-                    raise RemoteError(output.err_.decode())
-                return output.ans_
+            self.exec(f"exec({repr(code)}, __iot49__)", out)
+        if len(out.err_.getvalue()):
+            raise RemoteError(out.err_.decode())
+        return out.ans_.getvalue() if output == None else output
 
+
+class OutputWrapper(Output):
+    def __init__(self, output):
+        self.out_ = output
+        self.ans_ = io.BytesIO() if output == None else output
+        self.err_ = io.BytesIO()
+    def ans(self, val):
+        if self.out_:
+            self.out_.ans(val)
+        else:
+            self.ans_.write(val)
+    def err(self, val):
+        self.err_.write(val)
 
 ###############################################################################
 # code snippet (runs on remote)
