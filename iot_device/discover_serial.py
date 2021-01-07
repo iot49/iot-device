@@ -4,7 +4,7 @@ from .device_registry import DeviceRegistry
 
 from serial import SerialException
 import serial.tools.list_ports
-import os, time, logging ,threading
+import os, time, logging, threading
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
@@ -35,9 +35,10 @@ class DiscoverSerial(Discover):
                     if port.vid in COMPATIBLE_VID:
                         try:
                             DeviceRegistry.register(f"serial://{port.device}", max_age=2*scan_rate)
-                        except SerialException:
+                        except SerialException as e:
                             # Could not exclusively lock port /dev/cu.usbserial-014352DD: [Errno 35] Resource temporarily unavailable
                             # Device presumably locked by another process, optionally wait a little
+                            logger.warn(e)
                             time.sleep(0.5)
                     elif port.vid:
                         logger.info(f"Found {port} with unknown VID {port.vid:02X} (ignored)")
