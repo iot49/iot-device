@@ -73,4 +73,8 @@ class Eval(ABC):
 
     @abstractmethod
     def softreset(self) -> None:
-        """Reset micropython VM"""
+        """Reset MicroPython VM"""
+
+    @abstractmethod
+    def abort(self) -> None:
+        """Abort currently running program without resetting the MicroPython VM"""

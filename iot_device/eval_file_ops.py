@@ -60,7 +60,6 @@ class EvalFileOps(EvalDefaults):
 
     def fput(self, host_file:str, mcu_file:str, chunk_size:int=256):
         """Copy from host to microcontroller"""
-        logger.error(f"fput({host_file}, {mcu_file})")
         self.disable_write_protection()
         self.makedirs(os.path.dirname(mcu_file))
         if not os.path.isfile(host_file): return
@@ -88,7 +87,7 @@ class EvalFileOps(EvalDefaults):
             self.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
             self.exec(f"exec({repr(code)}, __iot49__)", out)
         if len(out.err_.getvalue()):
-            raise RemoteError(out.err_.decode())
+            raise RemoteError(out.err_.getvalue().decode())
         return out.ans_.getvalue() if output == None else output
 
 

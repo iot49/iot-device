@@ -37,16 +37,7 @@ class ReplProtocol(EvalRsync):
         except OSError:
             raise RemoteError("Device disconnected")
 
-    def softreset(self, output:Output=None, timeout=5):
-        from .device_registry import DeviceRegistry
-        url = self.device.url
-        self.__exec_part_1(_softreset)
-        # give device time to dis- and then reconnect
-        DeviceRegistry.unregister(url)
-        DeviceRegistry.get_device(url, timeout=10)
-
-    # superseded by machine.reset()
-    def repl_reset(self):
+    def softreset(self):
         """Reset MicroPython VM via repl"""
         try:
             self.device.write(MCU_ABORT)
@@ -59,6 +50,17 @@ class ReplProtocol(EvalRsync):
         except Exception as e:
             logger.debug("Exception in softreset")
             logger.exception("softreset: {e}")
+            raise RemoteError(e)
+
+    def abort(self):
+        """Abort program execution"""
+        try:
+            self.device.write(MCU_ABORT)
+            self.device.read_until(b'KeyboardInterrupt: \r\n\x04>')
+            logger.debug("abort MicroPython program")
+        except Exception as e:
+            logger.debug("Exception in abort")
+            logger.exception("abort: {e}")
             raise RemoteError(e)
 
     def __exec_part_1(self, code):
@@ -96,12 +98,15 @@ class ReplProtocol(EvalRsync):
                     if len(ans) > 2:  # 2nd EOT
                         return
                     break             # look for 2nd EOT below
+                # without CPU load goes through the roof ...
+                time.sleep(0.05)
             # read error message, if any
             while time.monotonic() < stop:
                 ans = self.device.read_all().split(EOT)
                 if len(ans[0]): output.err(ans[0])
                 if len(ans) > 1:      # 2nd EOT
                     break
+                time.sleep(0.05)
         else:
             result = bytearray()
             while time.monotonic() < stop:
@@ -115,6 +120,14 @@ class ReplProtocol(EvalRsync):
                 logger.debug(f"_exec_part_2 s={s} s[1]={s[1]}")
                 raise RemoteError(s[1].decode())
             return s[0]
+
+    def program_softreset(self, output:Output=None, timeout=5):
+        from .device_registry import DeviceRegistry
+        url = self.device.url
+        self.__exec_part_1(_softreset)
+        # give device time to dis- and then reconnect
+        DeviceRegistry.unregister(url)
+        DeviceRegistry.get_device(url, timeout=10)
 
 
 _softreset = """\

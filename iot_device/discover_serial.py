@@ -34,7 +34,7 @@ class DiscoverSerial(Discover):
                 for port in serial.tools.list_ports.comports():
                     if port.vid in COMPATIBLE_VID:
                         try:
-                            DeviceRegistry.register(f"serial://{port.device}", max_age=2*scan_rate)
+                            DeviceRegistry.register(f"repl://{port.device}", max_age=2*scan_rate)
                         except SerialException as e:
                             # Could not exclusively lock port /dev/cu.usbserial-014352DD: [Errno 35] Resource temporarily unavailable
                             # Device presumably locked by another process, optionally wait a little

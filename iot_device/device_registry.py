@@ -48,17 +48,20 @@ class DeviceRegistry:
             return frozenset(cls.__devices.values())
 
     @classmethod
-    def get_device(cls, uid_or_url: str, timeout:float=1) -> Device:
+    def get_device(cls, uid_or_url: str, *, schemes=['webrepl', 'repl'], timeout:float=1) -> Device:
         """Return device with given uid or url."""
         cls._purge()
         start = time.monotonic()
         while (time.monotonic()-start) < timeout:
             with cls.lock():
-                if uid_or_url in cls.__devices:
-                    return cls.__devices[uid_or_url]
-                for d in cls.__devices.values():
-                    if d.uid == uid_or_url:
-                        return d
+                for scheme in schemes:
+                    if uid_or_url in cls.__devices:
+                        dev =  cls.__devices[uid_or_url]
+                        if dev.scheme == scheme:
+                            return cls.__devices[uid_or_url]
+                    for d in cls.__devices.values():
+                        if d.uid == uid_or_url and d.scheme == scheme:
+                            return d
             time.sleep(0.5)
         return None
 
@@ -76,9 +79,9 @@ class DeviceRegistry:
             return
         # create a new device
         scheme, _ = url.split('://')
-        if scheme == 'serial':
+        if scheme == 'repl':
             device = SerialDevice(url)
-        elif scheme == 'net':
+        elif scheme == 'webrepl':
             device = NetDevice(url)
         else:
             raise ValueError(f"invalid scheme: {scheme}")

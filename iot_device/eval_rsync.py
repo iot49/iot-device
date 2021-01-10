@@ -43,6 +43,12 @@ class EvalRsync(EvalRlist):
         host_files = self._host_files(projects, include_patterns, exclude_patterns, implementation)
         add_, del_, upd_ = self._diff(mcu_files, host_files)
         if add_ or del_ or upd_:
+            for d in del_:
+                # delete first (protect against a bug that deletes what was just copied)
+                if not upload_only:
+                    output.ans(colored(f"DELETE  {d}\n", 'red'))
+                    if not dry_run:
+                        self.rm_rf(d)
             for a,p in add_.items():
                 src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, a))
                 dst_file = a
@@ -57,11 +63,6 @@ class EvalRsync(EvalRlist):
                 output.ans(colored(f"UPDATE  {u}\n", 'blue'))
                 if not dry_run:
                     self.fput(src_file, dst_file)
-            for d in del_:
-                if not upload_only:
-                    output.ans(colored(f"DELETE  {d}\n", 'red'))
-                    if not dry_run:
-                        self.rm_rf(d)
         else:
             output.ans(colored("Directories match\n", 'green'))
 

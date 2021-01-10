@@ -51,10 +51,16 @@ class ExecProtocol(EvalRsync):
         DeviceRegistry.unregister(url)
         DeviceRegistry.get_device(url, timeout=10)
 
+    def abort(self):
+        # abort program execution - now sure how to do this?
+        pass
+
     def _remote_eval(self, instruction, code, output, timeout):
         if not timeout: timeout = 1e20
         if not output: output = OutputHelper()
+        print(f"_remote_eval({instruction}, {code})")
         self.device.write(f"{instruction}\x04{len(code)}\n".encode())
+        print("send code")
         self.device.write(code.encode())
         self._read_response(output, timeout)
         if isinstance(output, OutputHelper):
@@ -64,7 +70,11 @@ class ExecProtocol(EvalRsync):
 
     def _read_response(self, output, timeout):
         # process response, format "OK _answer_ EOT _error_message_ EOT>"
-        assert self.device.read(2) == b'OK'
+        print("read OK")
+        ok = self.device.read(2)
+        if ok != b'OK':
+            print("expected OK, got", ok)
+            # raise RemoteError ...
         max_time = time.monotonic() + timeout
         while True:
             ans = self.device.read_all().split(EOT)

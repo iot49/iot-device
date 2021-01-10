@@ -30,12 +30,19 @@ class NetDevice(Device):
 
     def read_all(self):
         try:
-            b = self.__socket.recv(1024)
-        except ssl.SSLWantReadError as sre:
-            logger.error(f"NetDevice.read_all, {sre}")
+            b = self.__socket.recv(8)
+        except ssl.SSLWantReadError as e:
+            logger.error(f"NetDevice.read_all, {e}")
+        except socket.timeout as e:
+            print("TimeoutError in net_device.read_all", e)
+            return b""
+        except Exception as e:
+            print(f"Unspecified exception in net_device.read_all: {type(e)} {e}")
+            return b""
         if b:
             return b
         else:
+            print("b == None --> Connection reset")
             raise ConnectionResetError(f"Connection to {self.url} closed")
 
     def write(self, data):
@@ -46,7 +53,10 @@ class NetDevice(Device):
         return ExecProtocol(self)
 
     def __exit__(self, typ, value, traceback):
+        print(f"{self.name} bye")
         self.write(b'bye\n')
+        # make sure all data is sent???
+        time.sleep(0.2)
         self.__socket.close()
         self.__socket = None
 
