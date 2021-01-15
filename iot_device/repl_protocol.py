@@ -24,16 +24,29 @@ class ReplProtocol(EvalRsync):
     def __init__(self, device):
         super().__init__(device)
 
-    def exec(self, code, output:Output=None, timeout=None):
+    def exec(self, code, output:Output=None):
+        if isinstance(code, str):
+            code = code.encode()
         try:
-            self.__exec_part_1(code)
+            # ctrl-C twice: interrupt any running program
+            self.device.write(b"\r\x03\x03")
+            self.device.flush_input()
+            # enter raw repl
+            self.device.write(b"\r\x01")
+            self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>')
+            # send code & start evaluation
+            self.device.write(code)
+            self.device.write(b'\x04')
+
+            # read response
             if not output:
                 output = OutputHelper()
-            self.__exec_part_2(output, timeout)
-            if isinstance(output, OutputHelper):
+                self._read_response(output)
                 if len(output.err_):
                     raise RemoteError(output.err_.decode())
                 return output.ans_
+            else:
+                self._read_response(output)
         except OSError:
             raise RemoteError("Device disconnected")
 
@@ -43,98 +56,38 @@ class ReplProtocol(EvalRsync):
             self.device.write(MCU_ABORT)
             self.device.write(MCU_RESET)
             self.device.write(CR)
-            # SKIP ?: device may be disconnected after reset and
-            #         take some time to reconnect
-            self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>')
-            logger.debug("VM reset")
+            # Not sure this should be here. Device boot time?
+            time.sleep(0.5)
         except Exception as e:
-            logger.debug("Exception in softreset")
             logger.exception("softreset: {e}")
             raise RemoteError(e)
 
     def abort(self):
-        """Abort program execution"""
+        """Abort MicroPython program execution"""
         try:
             self.device.write(MCU_ABORT)
-            self.device.read_until(b'KeyboardInterrupt: \r\n\x04>')
-            logger.debug("abort MicroPython program")
+            time.sleep(0.5)
         except Exception as e:
-            logger.debug("Exception in abort")
             logger.exception("abort: {e}")
             raise RemoteError(e)
 
-    def __exec_part_1(self, code):
-        if isinstance(code, str):
-            code = code.encode()
-
-        # ctrl-C twice: interrupt any running program
-        self.device.write(b"\r\x03\x03")
-        self.device.flush_input()
-
-        # enter raw repl
-        self.device.write(b"\r\x01")
-        self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>')
-
-        # send code & start evaluation
-        for i in range(0, len(code), 256):
-            self.device.write(code[i : min(i + 256, len(code))])
-            time.sleep(0.01)
-        self.device.write(b'\x04')
-
-    def __exec_part_2(self, output, timeout=None):
+    def _read_response(self, output):
         # process result, format "OK _answer_ EOT _error_message_ EOT>"
-        res = self.device.read(2)
-        if res != b'OK':
-            raise RemoteError(f"Expected OK, got {res}")
-
-        stop = time.monotonic() + (timeout if timeout else 1e20)
-        if output:
-            logger.debug(f"_exec_part_2 ...")
-            while time.monotonic() < stop:
-                ans = self.device.read_all().split(EOT)
-                if len(ans[0]): output.ans(ans[0])
-                if len(ans) > 1:      # 1st EOT
-                    if len(ans[1]): output.err(ans[1])
-                    if len(ans) > 2:  # 2nd EOT
-                        return
-                    break             # look for 2nd EOT below
-                # without CPU load goes through the roof ...
-                time.sleep(0.05)
-            # read error message, if any
-            while time.monotonic() < stop:
-                ans = self.device.read_all().split(EOT)
-                if len(ans[0]): output.err(ans[0])
-                if len(ans) > 1:      # 2nd EOT
-                    break
-                time.sleep(0.05)
-        else:
-            result = bytearray()
-            while time.monotonic() < stop:
-                result.extend(self.device.read_all())
-                if result.count(EOT) > 1:
-                    break
-            s = result.split(EOT)
-            logger.debug(f"repl s={s}")
-            if len(s[1]) > 0:
-                # s[1] is exception
-                logger.debug(f"_exec_part_2 s={s} s[1]={s[1]}")
-                raise RemoteError(s[1].decode())
-            return s[0]
-
-    def program_softreset(self, output:Output=None, timeout=5):
-        from .device_registry import DeviceRegistry
-        url = self.device.url
-        self.__exec_part_1(_softreset)
-        # give device time to dis- and then reconnect
-        DeviceRegistry.unregister(url)
-        DeviceRegistry.get_device(url, timeout=10)
-
-
-_softreset = """\
-try:
-    import microcontroller
-    microcontroller.reset()
-except ImportError:
-    import machine
-    machine.reset()
-"""
+        self.device.read_until(b'OK')
+        while True:
+            ans = self.device.read()
+            if not len(ans):
+                time.sleep(0.1)
+                continue
+            ans = ans.split(EOT)
+            if len(ans[0]): output.ans(ans[0])
+            if len(ans) > 1:      # 1st EOT
+                if len(ans[1]): output.err(ans[1])
+                if len(ans) > 2:  # 2nd EOT
+                    return
+                break             # look for 2nd EOT below
+        while True:
+            ans = self.device.read().split(EOT)
+            if len(ans[0]): output.err(ans[0])
+            if len(ans) > 1:      # 2nd EOT
+                return

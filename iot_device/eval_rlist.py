@@ -65,7 +65,7 @@ class RlistOutput(TZ):
         self._line_buffer += b
         while b'\r\n' in self._line_buffer:
             line, self._line_buffer = self._line_buffer.split(b'\r\n', 1)
-            # print(f"line = {line}")
+            # print(f"rlist: line = {line}")
             kind, level, path, mtime, size = line.split(b',')
             path = eval(path)
             if len(path)<=0: continue

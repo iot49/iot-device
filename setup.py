@@ -8,6 +8,7 @@ install_requires = [
     "termcolor",
     "pyopenssl",
     "zeroconf",
+    "websocket-client",
 ]
 
 setuptools.setup(
@@ -35,4 +36,4 @@ setuptools.setup(
     },
     scripts = [ 'iot_server.sh', 'iot_registry.sh' ],
     python_requires='>=3.8',
-) 
+)

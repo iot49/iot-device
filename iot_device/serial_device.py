@@ -13,16 +13,16 @@ class SerialDevice(Device):
     def __init__(self, url):
         super().__init__(url)
 
-    def read(self, size=1):
+    def read(self, size=None):
+        if size == None:
+            size = self.__serial.in_waiting
         return self.__serial.read(size)
-
-    def read_all(self):
-        return self.__serial.read_all()
 
     def write(self, data):
         n = 0
         for i in range(0, len(data), 256):
             n += self.__serial.write(data[i:min(i+256, len(data))])
+            # give VM time to keep up
             time.sleep(0.01)
         return n
 
@@ -33,8 +33,8 @@ class SerialDevice(Device):
     def __enter__(self):
         try:
             self.__serial = Serial(self.address, 115200, parity='N',
-                timeout=1.5,            # read timeout
-                write_timeout=1.5,
+                timeout=0.5,            # read timeout
+                write_timeout=2,
                 exclusive= True         # exclusive access mode (POSIX only)
             )
             return ReplProtocol(self)

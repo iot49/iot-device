@@ -1,5 +1,5 @@
 from .device_registry import DeviceRegistry
-from .discover_net import DiscoverNet
+from .discover_mdns import DiscoverMdns
 from .discover_serial import DiscoverSerial
 from .eval import RemoteError
 from .config_store import Config

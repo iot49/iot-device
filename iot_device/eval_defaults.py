@@ -17,21 +17,23 @@ class EvalDefaults(Eval):
     def platform(self):
         return self.exec("import sys; print(sys.platform, end='')").decode()
 
-    def eval_exec(self, code: str, output:Output=None, timeout=None) -> None:
+    def eval_exec(self, code: str, output:Output=None) -> None:
         """Try eval, then exec if the former fails"""
-        self.exec(_eval_exec.format(repr(code)), output, timeout)
-
+        return self.exec(_eval_exec.format(repr(code)), output)
+        # return self.exec(code, output)
 
 ###############################################################################
 # code snippets (run on remote)
 
 _uid = """
+uid = bytes(6)
 try:
     import machine
-    print(":".join("{:02x}".format(x) for x in machine.unique_id()), end="")
+    uid = machine.unique_id()
 except:
     import microcontroller
-    print(":".join("{:02x}".format(x) for x in microcontroller.cpu.uid), end="")
+    uid = microcontroller.cpu.uid
+print(":".join("{:02x}".format(x) for x in uid), end="")
 """
 
 # NameError clause if for ports that don't support compile

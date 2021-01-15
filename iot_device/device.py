@@ -15,7 +15,9 @@ class Device(ABC):
 
         :param: url:str  e.g.
             serial:///dev/cu.usbmodem1413401
-            net://mcu.com:1234
+            mp
+
+            ://mcu.com:1234
         """
         self._url = url
         # connect to device and retrieve it's uid
@@ -23,6 +25,57 @@ class Device(ABC):
         self._uid = '?'
         with self as repl:
             self._uid = repl.uid()
+
+    @abstractmethod
+    def read(self, size=None) -> bytes:
+        """Read all availble data or max size.
+        Not blocking: short read (including b'') if no data availble.
+        Important: May be aborted by KeyboardInterrupt."""
+
+    @abstractmethod
+    def write(self, data: bytes):
+        """Writes data to device."""
+
+    def read_until(self, pattern: bytes, timeout=1):
+        """Read until pattern.
+        Intended to be used to check for repl responses.
+        Longer timeout may be required for reboot
+        (if boot.py takes a long time without output).
+        Raises RemoteError if the device is not responsive."""
+        result = bytearray()
+        start = time.monotonic()
+        while not result.endswith(pattern):
+            if (time.monotonic() - start) > 3:
+                raise RemoteError(
+                    f"Timeout reading from MCU,\n   got "
+                    f"'{result.decode()}',\nexpect '{pattern.decode()}'")
+            b = self.read(size=1)
+            if len(b) > 0:
+                # device is responsive, give it more time
+                start = time.monotonic()
+                result.extend(b)
+        return result
+
+    def flush_input(self):
+        """Flush input buffer - data from MCU.
+        Implement as needed, e.g. for SerialDevice."""
+        pass
+
+    @abstractmethod
+    def __enter__(self) -> Eval:
+        """Usage pattern:
+
+        with device as repl:
+            repl.exec(...)
+            repl.rlist(...)
+        """
+
+    @abstractmethod
+    def __exit__(self, type, value, traceback):
+        pass
+
+    def __repr__(self):
+        return f"{self.name} @ {self.url} ({self.uid})"
 
     @property
     def uid(self) -> str:
@@ -55,49 +108,3 @@ class Device(ABC):
     def root(self) -> str:
         """Root of file system on remote (e.g. /flash on pyboard)"""
         return Config.get_device(self.uid, 'root', '/')
-
-    @abstractmethod
-    def read(self, size=1) -> bytes:
-        """Read size bytes"""
-
-    @abstractmethod
-    def read_all(self) -> bytes:
-        """Read all available data"""
-
-    @abstractmethod
-    def write(self, data: bytes):
-        """Writes data"""
-
-    def read_until(self, pattern: bytes, timeout=3):
-        """Read until pattern
-        Raises RemoteError
-        """
-        result = bytearray()
-        start = time.monotonic()
-        while not result.endswith(pattern):
-            if (time.monotonic() - start) > timeout:
-                raise RemoteError(f"Timeout reading from MCU, got {result}, expect {pattern}")
-            b = self.read(size=1)
-            result.extend(b)
-        return result
-
-    def flush_input(self):
-        """Flush input buffer - data from MCU
-        Implement as needed, e.g. for SerialDevice."""
-        pass
-
-    @abstractmethod
-    def __enter__(self) -> Eval:
-        """Usage pattern:
-
-            with device as repl:
-                repl.exec(...)
-                repl.rlist(...)
-        """
-
-    @abstractmethod
-    def __exit__(self, type, value, traceback):
-        pass
-
-    def __repr__(self):
-        return f"{self.name} @ {self.url} ({self.uid})"

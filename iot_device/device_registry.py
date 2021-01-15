@@ -1,7 +1,5 @@
 from .eval import RemoteError
 from .device import Device
-from .serial_device import SerialDevice
-from .net_device import NetDevice
 from contextlib import contextmanager
 import os, logging, threading, time
 
@@ -48,25 +46,23 @@ class DeviceRegistry:
             return frozenset(cls.__devices.values())
 
     @classmethod
-    def get_device(cls, uid_or_url: str, *, schemes=['webrepl', 'repl'], timeout:float=1) -> Device:
+    def get_device(cls, uid: str, *, schemes=None, timeout:float=1) -> Device:
         """Return device with given uid or url."""
+        if schemes == None or len(schemes) == 0:
+            schemes = ['mp', 'serial', 'telnet', 'ws']
         cls._purge()
         start = time.monotonic()
         while (time.monotonic()-start) < timeout:
             with cls.lock():
                 for scheme in schemes:
-                    if uid_or_url in cls.__devices:
-                        dev =  cls.__devices[uid_or_url]
-                        if dev.scheme == scheme:
-                            return cls.__devices[uid_or_url]
-                    for d in cls.__devices.values():
-                        if d.uid == uid_or_url and d.scheme == scheme:
-                            return d
-            time.sleep(0.5)
+                    for dev in cls.__devices.values():
+                        if dev.uid == uid and dev.scheme == scheme:
+                            return dev
+            time.sleep(0.4)
         return None
 
     @classmethod
-    def register(cls, url: str, max_age:float=None):
+    def register(cls, url:str, max_age:float=None):
         """Create device for given url and register in database.
         :param: max_age:float  Device automatically unregistered
                      if no activity (register) in specified interval.
@@ -78,13 +74,8 @@ class DeviceRegistry:
             cls.__devices[url].last_seen = time.monotonic()
             return
         # create a new device
-        scheme, _ = url.split('://')
-        if scheme == 'repl':
-            device = SerialDevice(url)
-        elif scheme == 'webrepl':
-            device = NetDevice(url)
-        else:
-            raise ValueError(f"invalid scheme: {scheme}")
+        device_class = find_device_class(url)
+        device = device_class(url)
         device.max_age = max_age
         device.last_seen = time.monotonic()
         with cls.lock():
@@ -115,3 +106,20 @@ class DeviceRegistry:
     @classmethod
     def register_listener(cls, listener):
         cls.__listener = listener
+
+
+def find_device_class(url):
+    from .serial_device import SerialDevice
+    from .mp_device import MpDevice
+    from .telnet_device import TelnetDevice
+    from .webrepl_device import WebreplDevice
+    classes = {}
+    classes['serial'] = SerialDevice
+    classes['mp']     = MpDevice
+    classes['ws']     = WebreplDevice
+    classes['wss']    = WebreplDevice
+    classes['telnet'] = TelnetDevice
+    scheme, _ = url.split('://')
+    c = classes.get(scheme)
+    if c: return c
+    raise ValueError(f"invalid scheme: {scheme}")

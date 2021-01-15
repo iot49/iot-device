@@ -1,5 +1,6 @@
-from iot_device import DeviceRegistry, DiscoverSerial, DiscoverNet
-from iot_device import RemoteError, Config
+from .device_registry import DeviceRegistry
+import DiscoverSerial, DiscoverNet
+from .__init__ import RemoteError, Config
 import sys, time
 
 
@@ -18,44 +19,22 @@ def main():
     DiscoverSerial()
     DiscoverNet()
 
-    # give discovery some time
-    time.sleep(1)
-
-    devices = DeviceRegistry.devices()
-    for dev in devices:
-        print("{} {} {} {}\n".format(
-            dev.name, ', '.join(dev.projects), dev.connection, dev.uid))
-
-
-    # run code on all devices discovered so far
-    for dev in DeviceRegistry.devices():
-        print(f"\n{'*'*20} {dev.name} {dev.connection} {'*'*(80-len(str(dev.name))-len(dev.connection))}")
-        with dev as repl:
-            output = Output()
-            print("softreset ...")
-            repl.softreset()
-            print("rlist ...")
-            files = repl.rlist('/', output, show=True)
-            for k,v in repl.rlist('/', output).items():
-                print("{:20} {}".format(k, v))
-            break
-            print("get_time", repl.get_time())
-            repl.sync_time(tolerance=1)
-            print("get_time", repl.get_time())
-            repl.eval_exec('globals()', output)
-            repl.eval_exec("5-9", output)
-            repl.eval_exec("a = 'hello world!'", output)
-            repl.eval_exec("a", output)
-            repl.exec("import sys; print(sys.platform)", output)
-            print(f"\nimplementation: {repl.implementation()}")
-            print("\n----- cat boot.by")
-            repl.cat("boot.py", output)
-            repl.makedirs("/flash/a/b/c")
-            print("\n----- rlist")
-            repl.rlist('/', output)
-            repl.rm("/flash/a")
-            repl.eval_exec('globals()', output)
-
+    # run code on all discovered devices
+    while True:
+        for dev in DeviceRegistry.devices():
+            try:
+                print(f"\n{'*'*20} {dev.name} {dev.connection} {'*'*(80-len(str(dev.name))-len(dev.connection))}")
+                with dev as repl:
+                    print(repl.eval("print('power of 3', 3**10)").decode())
+                    output = Output()
+                    repl.eval("print('power of 2', 2**10)", output)
+                    print("\n----- cat boot.by")
+                    repl.cat(output, "boot.py")
+                    print("\n----- rlist")
+                    repl.rlist(output)
+            except:
+                pass
+        time.sleep(1)
 
 
 if __name__ == "__main__":
