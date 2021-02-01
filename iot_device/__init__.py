@@ -1,7 +1,5 @@
 from .device_registry import DeviceRegistry
-from .discover_mdns import DiscoverMdns
-from .discover_serial import DiscoverSerial
-from .eval import RemoteError
+from .eval import RemoteError, OutputHelper
 from .config_store import Config
 from .utilities import *
 from .version import __version__

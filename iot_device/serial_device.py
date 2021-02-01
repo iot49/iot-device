@@ -26,9 +26,9 @@ class SerialDevice(Device):
             time.sleep(0.01)
         return n
 
-    def flush_input(self):
-        """Flush input buffer - data from MCU"""
-        self.__serial.reset_input_buffer
+    @property
+    def in_waiting(self):
+        return self.__serial.in_waiting
 
     def __enter__(self):
         try:

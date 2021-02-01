@@ -1,5 +1,8 @@
 from .eval import RemoteError
 from .device import Device
+from .inaccessible_device import InaccessibleDevice
+from .discover_serial import DiscoverSerial
+from .discover_mdns import DiscoverMdns
 from contextlib import contextmanager
 import os, logging, threading, time
 
@@ -7,105 +10,82 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
 class DeviceRegistry:
+    """Keeps track of currently available devices"""
 
-    ###############################################################
-    # device registry: all currently available devices
-    # singleton, implemented as class instance
+    def __init__(self):
+        self._discover_serial = DiscoverSerial()
+        self._discover_mdns = DiscoverMdns()
+        # map url -> device
+        self._devices = {}
 
-    # map url -> device
-    __devices = {}
-    __devices_lock = threading.Lock()
-    __listener = None
+    @property
+    def devices(self) -> frozenset:
+        """List of all devices that are currently online. Includes InaccessibleDevice."""
+        self._update()
+        return frozenset(self._devices.values())
 
-    @contextmanager
-    def lock(timeout=2):
-        result = DeviceRegistry.__devices_lock.acquire(timeout=timeout)
-        if not result:
-            raise TimeoutError("DeviceRegistry: cannot acquire lock")
-        try:
-            yield result
-        finally:
-            DeviceRegistry.__devices_lock.release()
-
-    @classmethod
-    def _purge(cls):
-        # purge "old" devices from database
-        now = time.monotonic()
-        with cls.lock():
-            devices = {}
-            for k,v in cls.__devices.items():
-                # only keep devices recently seen
-                if not v.max_age or (now-v.last_seen) < v.max_age:
-                    devices[k] = v
-            cls.__devices = devices
-
-    @classmethod
-    def devices(cls) -> frozenset:
-        cls._purge()
-        with cls.lock():
-            return frozenset(cls.__devices.values())
-
-    @classmethod
-    def get_device(cls, uid: str, *, schemes=None, timeout:float=1) -> Device:
-        """Return device with given uid or url."""
+    def get_device(self, name: str, schemes=None) -> Device:
+        """Device with given name/uid/url & schemes."""
         if schemes == None or len(schemes) == 0:
             schemes = ['mp', 'serial', 'telnet', 'ws']
-        cls._purge()
-        start = time.monotonic()
-        while (time.monotonic()-start) < timeout:
-            with cls.lock():
-                for scheme in schemes:
-                    for dev in cls.__devices.values():
-                        if dev.uid == uid and dev.scheme == scheme:
-                            return dev
-            time.sleep(0.4)
+        self._update()
+        for scheme in schemes:
+            for dev in self._devices.values():
+                if (dev.name == name or dev.uid == name or dev.url == name) and dev.scheme == scheme:
+                    return dev
         return None
 
-    @classmethod
-    def register(cls, url:str, max_age:float=None):
+    def _update(self):
+        # update database ...
+        urls = self._discover_serial.scan()
+        urls.extend(self._discover_mdns.scan())
+        # 1) purge database of devices that are no longer available
+        now = time.monotonic()
+        for k in list(self._devices.keys()):
+            if k in urls: continue
+            v = self._devices[k]
+            if not v.max_age: continue
+            if (now-v.last_seen) > v.max_age:
+                del self._devices[k]
+        # 2) register newly discovered devices (not already in database)
+        for url in urls:
+            try:
+                self.register(url, 0.5)
+            except (ValueError, RemoteError) as e:
+                # leave this print statement - will show up in jupyter!
+                print(f"Failed to register {url}: {e}")
+                logger.info(f"Failed to register {url}: {e}")
+
+    def register(self, url:str, max_age:float=None):
         """Create device for given url and register in database.
         :param: max_age:float  Device automatically unregistered
                      if no activity (register) in specified interval.
                      Default: None, no automatic unregistering.
                      Calling register (repeatedly) resets age to 0.
         """
-        if url in cls.__devices:
+        if url in self._devices.keys():
             # already in database
-            cls.__devices[url].last_seen = time.monotonic()
+            self._devices[url].last_seen = time.monotonic()
             return
         # create a new device
         device_class = find_device_class(url)
         device = device_class(url)
         device.max_age = max_age
         device.last_seen = time.monotonic()
-        with cls.lock():
-            cls.__devices[url] = device
-            logger.info(f"registering {url}")
-            if cls.__listener:
-                cls.__listener.register_device(url, device)
+        self._devices[url] = device
+        logger.debug(f"registering {device.name} {device.uid} {url}")
 
-    @classmethod
-    def unregister(cls, device:str):
+    def unregister(self, name:str):
         """Unregister device (by name, uid, or url)"""
-        with cls.lock():
-            url = None
-            if device in cls.__devices:
-                url = device
-            else:
-                for k,v in cls.__devices.items():
-                    if device == v.uid or device == v.name:
-                        url = k
-                        break
-            if not url:
-                raise ValueError(f"device not in registry: {url}")
-            logger.info(f"unregistering {url}")
-            del cls.__devices[url]
-            if cls.__listener:
-                cls.__listener.unregister_device(url)
-
-    @classmethod
-    def register_listener(cls, listener):
-        cls.__listener = listener
+        url = None
+        for v in self._devices.values():
+            if name == v.uid or name == v.name or name == v.url:
+                url = v.url
+                break
+        if not url:
+            raise ValueError(f"Device not in registry")
+        del self._devices[url]
+        logger.debug(f"unregisted {url}")
 
 
 def find_device_class(url):
@@ -119,7 +99,10 @@ def find_device_class(url):
     classes['ws']     = WebreplDevice
     classes['wss']    = WebreplDevice
     classes['telnet'] = TelnetDevice
-    scheme, _ = url.split('://')
+    try:
+        scheme, _ = url.split('://')
+    except ValueError as e:
+        raise ValueError(f"Invalid url: {url}")
     c = classes.get(scheme)
     if c: return c
-    raise ValueError(f"invalid scheme: {scheme}")
+    raise ValueError(f"Unknown scheme: {scheme}")

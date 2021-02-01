@@ -17,7 +17,7 @@ class EvalRsync(EvalRlist):
     def rsync(self, output, *,
             mcu_root = '/',
             projects=['base'],
-            include_patterns = ['./**/*.py'],
+            include_patterns = ['./**/*.py', './**/'],
             exclude_patterns = [],
             implementation='micropython',
             dry_run=True,
@@ -33,16 +33,18 @@ class EvalRsync(EvalRlist):
         # sync mcu time to host if they differ by more than 3 seconds
         if not dry_run:
             # done by individual operations (fput, rm, ...)
-            # self.disable_write_protection()
             self.sync_time(3)
         mcu_files = self.rlist(self.device.root, output)
-        # hack exclude boot_out.txt
-        # ok for now, let's wait to see if other cases crop up
+        # excludes
         mcu_files.pop("boot_out.txt", None)
-
+        for f in list(mcu_files):
+            for exclude_pattern in exclude_patterns:
+                if fnmatch(f, exclude_pattern):
+                    mcu_files.pop(f, None)
         host_files = self._host_files(projects, include_patterns, exclude_patterns, implementation)
         add_, del_, upd_ = self._diff(mcu_files, host_files)
         if add_ or del_ or upd_:
+            # print(add_, del_, upd_)
             for d in del_:
                 # delete first (protect against a bug that deletes what was just copied)
                 if not upload_only:
@@ -90,7 +92,7 @@ class EvalRsync(EvalRlist):
         )
 
     def _host_files(self, projects=['base'],
-                    include_patterns = ['./**/*'],
+                    include_patterns = ['./**/*', './**/'],
                     exclude_patterns = [],
                     implementation='micropython'):
         # returns { dict filename -> (project, mtime, size) }
@@ -105,7 +107,7 @@ class EvalRsync(EvalRlist):
                                 if fnmatch(src, exclude_pattern):
                                     src = None
                                     break
-                            if not src: continue
+                            if not src or src == './': continue
                             src = os.path.normpath(src)
                             mtime = os.path.getmtime(src)
                             size = -1 if os.path.isdir(src) else os.path.getsize(src)

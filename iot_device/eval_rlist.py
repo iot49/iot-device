@@ -75,23 +75,21 @@ class RlistOutput(TZ):
             mtime_fmt = datetime.fromtimestamp(mtime).strftime("%b %d %H:%M %Y")
             full_path = os.path.join(*self._path_stack[:level], path)
             if kind == b'D':
-                if size == 0:
-                    # empty directory
-                    self._files[full_path] = (mtime, -1)
+                self._files[full_path] = (mtime, -1)
                 while len(self._path_stack) < level+1:
                     self._path_stack.append('')
                 self._path_stack[level] = path
                 if level != 0:
                     if self._show and self._output:
                         path += '/'
-                        self._output.ans(f"{' '*7}  {mtime_fmt}  {self._indent(level)}{colored(path, 'green')}\n")
+                        self._output.ans(f"{' ':7}  {' ':18} {self._indent(level-1)}{colored(path, 'green')}\n")
                 else:
                     self._level_offset = -1
             else:
                 self._files[full_path] = (mtime, size)
                 if self._output:
                     if self._show:
-                        self._output.ans(f"{int(size):7}  {mtime_fmt}  {self._indent(level)}{colored(path, 'blue')}\n")
+                        self._output.ans(f"{int(size):7}  {mtime_fmt:18} {self._indent(level-1)}{colored(path, 'blue')}\n")
                     elif len(self._files) > 50 and len(self._files) % 10 == 0:
                         # show progress
                         self._output.ans('.')

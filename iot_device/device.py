@@ -20,11 +20,10 @@ class Device(ABC):
             ://mcu.com:1234
         """
         self._url = url
-        # connect to device and retrieve it's uid
-        # raise error if uid cannot be retrieved
-        self._uid = '?'
+        # connect to device and retrieve its uid; raise RemoteError if unsuccessful
+        self._uid = url
         with self as repl:
-            self._uid = repl.uid()
+            self._uid = repl.exec(_uid).decode()
 
     @abstractmethod
     def read(self, size=None) -> bytes:
@@ -45,10 +44,12 @@ class Device(ABC):
         result = bytearray()
         start = time.monotonic()
         while not result.endswith(pattern):
-            if (time.monotonic() - start) > 3:
+            if (time.monotonic() - start) > timeout:
+                if len(pattern) == 0:
+                    raise TimeoutError(f"No response from {self.url}")
                 raise RemoteError(
-                    f"Timeout reading from MCU,\n   got "
-                    f"'{result.decode()}',\nexpect '{pattern.decode()}'")
+                    f"Unexpected response from {self.url}: got\n"
+                    f"'{result.decode()}'\nexpect\n'{pattern.decode()}'")
             b = self.read(size=1)
             if len(b) > 0:
                 # device is responsive, give it more time
@@ -56,10 +57,10 @@ class Device(ABC):
                 result.extend(b)
         return result
 
-    def flush_input(self):
-        """Flush input buffer - data from MCU.
-        Implement as needed, e.g. for SerialDevice."""
-        pass
+    @property
+    def in_waiting(self):
+        # override in SerialDevice
+        return 0
 
     @abstractmethod
     def __enter__(self) -> Eval:
@@ -108,3 +109,18 @@ class Device(ABC):
     def root(self) -> str:
         """Root of file system on remote (e.g. /flash on pyboard)"""
         return Config.get_device(self.uid, 'root', '/')
+
+
+###############################################################################
+# code snippet (run on remote)
+
+_uid = """
+uid = bytes(6)
+try:
+    import machine
+    uid = machine.unique_id()
+except:
+    import microcontroller
+    uid = microcontroller.cpu.uid
+print(":".join("{:02x}".format(x) for x in uid), end="")
+"""

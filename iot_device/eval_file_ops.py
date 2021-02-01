@@ -11,13 +11,11 @@ class EvalFileOps(EvalDefaults):
 
     def makedirs(self, path:str):
         """Make all directories required for path. No-op if directories exist."""
-        self.disable_write_protection()
         self._remote_exec(f"makedirs({repr(path)})")
 
-    def rm_rf(self, path:str):
+    def rm_rf(self, path:str, r:bool=True, f:bool=True):
         """rm -rf path"""
-        self.disable_write_protection()
-        self._remote_exec(f"rm_rf({repr(path)})")
+        self._remote_exec(f"rm_rf({repr(path)}, {repr(r)}, {repr(f)})")
 
     def cat(self, path:str, output:Output):
         """Show contents of path on console"""
@@ -60,7 +58,6 @@ class EvalFileOps(EvalDefaults):
 
     def fput(self, host_file:str, mcu_file:str, chunk_size:int=256):
         """Copy from host to microcontroller"""
-        self.disable_write_protection()
         self.makedirs(os.path.dirname(mcu_file))
         if not os.path.isfile(host_file): return
         self.exec(f"f=open('{mcu_file}','wb')\nw=f.write")
@@ -70,10 +67,6 @@ class EvalFileOps(EvalDefaults):
                 if not data: break
                 self.exec(f"w({repr(data)})")
         self.exec("f.close()")
-
-    def disable_write_protection(self):
-        # disable CircuitPython flash write protection
-        self._remote_exec(f"unprotect()")
 
     def _remote_exec(self, code:str, output:Output=None):
         """Execute code on remote; upload code if required"""
@@ -110,13 +103,6 @@ class OutputWrapper(Output):
 _remote_functions = """
 import os, time
 
-def unprotect():
-    try:
-        import storage
-        storage.remount('/', readonly=False)
-    except ImportError:
-        pass
-
 def makedirs(path):
     try:
         os.mkdir(path)
@@ -130,20 +116,16 @@ def makedirs(path):
         else:
             raise
 
-def rm_rf(path):
-    try:
-        mode = os.stat(path)[0]
-        if mode & 0x4000 != 0:
+def rm_rf(path, r, f):
+    mode = os.stat(path)[0]
+    if mode & 0x4000 != 0:
+        if r:
             for file in os.listdir(path):
-                rm_rf(path + '/' + file)
+                rm_rf(path + '/' + file, r, f)
+        if f:
             os.rmdir(path)
-        else:
-            os.remove(path)
-    except OSError as e:
-        if e.args[0] == 2:
-            pass
-        else:
-            raise
+    else:
+        os.remove(path)
 
 def cat(path):
     with open(path) as f:
@@ -199,4 +181,22 @@ def rlist(path, level=0):
             pass
     else:
         print("F,{},{},{},{}".format(level, repr(path), mtime, fsize))
+"""
+
+
+"""
+def rm_rf(path):
+    try:
+        mode = os.stat(path)[0]
+        if mode & 0x4000 != 0:
+            for file in os.listdir(path):
+                rm_rf(path + '/' + file)
+            os.rmdir(path)
+        else:
+            os.remove(path)
+    except OSError as e:
+        if e.args[0] == 2:
+            pass
+        else:
+            raise
 """

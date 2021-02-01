@@ -55,7 +55,7 @@ class Eval(ABC):
         return self._device
 
     @abstractmethod
-    def exec(self, code: str, output:Output=None) -> bytes:
+    def exec(self, code: str, output:Output=None, *, no_response=False) -> bytes:
         """Exec code on remote (Micro)Python VM.
 
         If output is None, evaluation results are returned from the function
@@ -67,12 +67,10 @@ class Eval(ABC):
 
         Runs until code execution terminates or a KeyboardInterrupt is received.
         In the latter case, call abort to also terminate the program on the microcontroller.
+
+        :param:no_response: just start command, don't wait or read output
         """
         pass
-
-    @abstractmethod
-    def eval_exec(self, code: str, output:Output=None) -> None:
-        """Try eval, then exec if the former fails"""
 
     @abstractmethod
     def softreset(self) -> None:

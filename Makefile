@@ -2,7 +2,7 @@ tag:
 	git tag ${TAG} -m "${MSG}"
 	git push --tags
 
-dist: 
+dist:
 	python3 setup.py sdist bdist_wheel
 
 publish-test: clean dist
@@ -14,13 +14,13 @@ publish: clean dist
 install-local: clean dist
 	python setup.py install
 
-test: 
-	tox
+test:
+	cd tests; pytest airlift
 
 coverage: test
 	coverage report
 
-docs: 
+docs:
 	cd docs; make html
 	open docs/_build/html/index.html
 

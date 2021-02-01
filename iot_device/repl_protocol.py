@@ -24,52 +24,68 @@ class ReplProtocol(EvalRsync):
     def __init__(self, device):
         super().__init__(device)
 
-    def exec(self, code, output:Output=None):
+    def exec(self, code, output:Output=None, *, no_response=False):
+        # enter raw repl (we don't make any assumption about state of device)
+        self._enter_raw_repl()
+        # send code & start evaluation
         if isinstance(code, str):
             code = code.encode()
-        try:
-            # ctrl-C twice: interrupt any running program
-            self.device.write(b"\r\x03\x03")
-            self.device.flush_input()
-            # enter raw repl
-            self.device.write(b"\r\x01")
-            self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>')
-            # send code & start evaluation
-            self.device.write(code)
-            self.device.write(b'\x04')
+        self.device.write(code)
+        self.device.write(b'\x04')
+        # read output
+        if no_response: return
+        if not output:
+            output = OutputHelper()
+            self._read_response(output)
+            if len(output.err_):
+                raise RemoteError(f"*** Error in exec: {output.err_.decode()}")
+            return output.ans_
+        else:
+            self._read_response(output)
 
-            # read response
-            if not output:
-                output = OutputHelper()
-                self._read_response(output)
-                if len(output.err_):
-                    raise RemoteError(output.err_.decode())
-                return output.ans_
-            else:
-                self._read_response(output)
-        except OSError:
-            raise RemoteError("Device disconnected")
+    def _enter_raw_repl(self):
+        # if the device just got online, it may not respond yet ...
+        # keep trying, as long as we get some response ...
+        start = time.monotonic()
+        while (time.monotonic()-start) < 5:
+            try:
+                # ctrl-C twice: interrupt any running program
+                self.device.write(b"\r\x03\x03")
+                # enter raw repl
+                self.device.write(b"\r\x01")
+                self.device.read_until(b'raw REPL; CTRL-B to exit\r\n>', timeout=0.5)
+                break
+            except TimeoutError as e:
+                # no response, give up
+                logger.debug(f"enter_raw_repl: {e}")
+                # raise RemoteError(e)
+            except RemoteError as e:
+                # got a response, just not the expected one; keep trying
+                print(f"{e} from {self.device.url} while trying to enter raw repl")
+                logger.debug(f"Unexpected response {e} from {self.device.url} while trying to enter raw repl")
+            except OSError:
+                raise RemoteError("Device disconnected")
 
     def softreset(self):
         """Reset MicroPython VM via repl"""
         try:
-            self.device.write(MCU_ABORT)
-            self.device.write(MCU_RESET)
-            self.device.write(CR)
-            # Not sure this should be here. Device boot time?
-            time.sleep(0.5)
+            device = self.device
+            device.write(MCU_ABORT)
+            device.write(MCU_RESET)
+            device.write(CR)
+            device.read_until(b'raw REPL; CTRL-B to exit\r\n>', 5)
         except Exception as e:
-            logger.exception("softreset: {e}")
-            raise RemoteError(e)
+            logger.exception(f"softreset: {e}")
+            raise RemoteError(f"*** Error in softreset: {e}")
 
     def abort(self):
         """Abort MicroPython program execution"""
         try:
             self.device.write(MCU_ABORT)
-            time.sleep(0.5)
+            self.device.read_until(b'KeyboardInterrupt: \r\n\x04>', 3)
         except Exception as e:
             logger.exception("abort: {e}")
-            raise RemoteError(e)
+            raise RemoteError(f"*** abort: {e}")
 
     def _read_response(self, output):
         # process result, format "OK _answer_ EOT _error_message_ EOT>"

@@ -1,6 +1,5 @@
 from .discover import Discover
 from .eval import RemoteError
-from .device_registry import DeviceRegistry
 
 from serial import SerialException
 import serial.tools.list_ports
@@ -23,25 +22,13 @@ class DiscoverSerial(Discover):
     def __init__(self, scan_rate:float=1):
         """Start a daemon thread that continually scans ports every scan_rate seconds."""
         super().__init__()
-        th = threading.Thread(target=self._scanner, args=(scan_rate,), name="serial scanner")
-        th.setDaemon(True)
-        th.start()
-        self._scan_thread = th
 
-    def _scanner(self, scan_rate: float):
-        while True:
-            try:
-                for port in serial.tools.list_ports.comports():
-                    if port.vid in COMPATIBLE_VID:
-                        try:
-                            DeviceRegistry.register(f"serial://{port.device}", max_age=2*scan_rate)
-                        except SerialException as e:
-                            # Could not exclusively lock port /dev/cu.usbserial-014352DD: [Errno 35] Resource temporarily unavailable
-                            # Device presumably locked by another process, optionally wait a little
-                            logger.warn(e)
-                            time.sleep(0.5)
-                    elif port.vid:
-                        logger.info(f"Found {port} with unknown VID {port.vid:02X} (ignored)")
-                time.sleep(scan_rate)
-            except Exception as ex:
-                logger.exception(f"Unhandled exception in DiscoverSerial._scanner")
+    def scan(self):
+        # return url's of devices that are online
+        res = []
+        for port in serial.tools.list_ports.comports():
+            if port.vid in COMPATIBLE_VID:
+                res.append(f"serial://{port.device}")
+            elif port.vid:
+                logger.info(f"Found {port} with unknown VID {port.vid:02X} (ignored)")
+        return res
