@@ -1,4 +1,4 @@
-from .eval import Output, OutputHelper, RemoteError
+from .eval import RemoteError
 from .eval_rsync import EvalRsync
 import os, struct, time
 
@@ -11,7 +11,7 @@ class MpProtocol(EvalRsync):
         super().__init__(device)
 
     # implement abstract Exec
-    def exec(self, code, output:Output=None, *, no_response=False):
+    def exec(self, code, data_consumer=None, *, no_response=False):
         if len(code) == 0: return
         print("MpProtocol.exec", code)
         if isinstance(code, str): code = code.encode()

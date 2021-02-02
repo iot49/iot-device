@@ -1,6 +1,5 @@
 from .eval import RemoteError
 from .device import Device
-from .inaccessible_device import InaccessibleDevice
 from .discover_serial import DiscoverSerial
 from .discover_mdns import DiscoverMdns
 from contextlib import contextmanager

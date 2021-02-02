@@ -10,14 +10,16 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 class EvalRlist(EvalFileOps):
     """Add file listing capabilities"""
 
-    def rlist(self, path, output=None, show=False):
+    def rlist(self, path, data_consumer=None, show=False):
         """Return and opionally display files stored on remote"""
-        out = RlistOutput(output, show)
+        out = RlistOutput(data_consumer, show)
         self.exec('import os')
         cwd = self.exec('print(os.getcwd(), end="")').decode()
         try:
             self.exec(f'os.chdir({repr(path)})')
-            self._remote_exec(f"rlist('')", out)
+            self._remote_exec(f"rlist('')", out.data_consumer)
+        except RemoteError as e:
+            raise
         finally:
             self.exec(f'os.chdir({repr(cwd)})')
         return out.files
@@ -43,10 +45,10 @@ class TZ:
 
 class RlistOutput(TZ):
 
-    def __init__(self, output=None, show=False):
+    def __init__(self, data_consumer=None, show=False):
         # show: prints file list to output
         # (otherwise just progress, if output not None)
-        self._output = output
+        self._output = data_consumer
         self._show = show
         self._level_offset = 0
         self._path_stack = []
@@ -60,7 +62,7 @@ class RlistOutput(TZ):
     def _indent(self, level):
         return ' '*4*(level + self._level_offset)
 
-    def ans(self, b):
+    def data_consumer(self, b):
         # b could be any fragment or combination of lines!
         self._line_buffer += b
         while b'\r\n' in self._line_buffer:
@@ -82,17 +84,14 @@ class RlistOutput(TZ):
                 if level != 0:
                     if self._show and self._output:
                         path += '/'
-                        self._output.ans(f"{' ':7}  {' ':18} {self._indent(level-1)}{colored(path, 'green')}\n")
+                        self._output(f"{' ':7}  {' ':18} {self._indent(level-1)}{colored(path, 'green')}\n")
                 else:
                     self._level_offset = -1
             else:
                 self._files[full_path] = (mtime, size)
                 if self._output:
                     if self._show:
-                        self._output.ans(f"{int(size):7}  {mtime_fmt:18} {self._indent(level-1)}{colored(path, 'blue')}\n")
+                        self._output(f"{int(size):7}  {mtime_fmt:18} {self._indent(level-1)}{colored(path, 'blue')}\n")
                     elif len(self._files) > 50 and len(self._files) % 10 == 0:
                         # show progress
-                        self._output.ans('.')
-
-    def err(self, b):
-        self._output.err(b)
+                        self._output('.')

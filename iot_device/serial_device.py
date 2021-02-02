@@ -13,21 +13,13 @@ class SerialDevice(Device):
     def __init__(self, url):
         super().__init__(url)
 
-    def read(self, size=None):
-        if size == None:
-            size = self.__serial.in_waiting
+    def read(self, size):
         return self.__serial.read(size)
 
     def write(self, data):
-        n = 0
-        for i in range(0, len(data), 256):
-            n += self.__serial.write(data[i:min(i+256, len(data))])
-            # give VM time to keep up
-            time.sleep(0.01)
-        return n
+        return self.__serial.write(data)
 
-    @property
-    def in_waiting(self):
+    def inWaiting(self):
         return self.__serial.in_waiting
 
     def __enter__(self):

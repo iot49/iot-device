@@ -5,43 +5,35 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
 class RemoteError(Exception):
-    def __init__(self, msg):
-        if isinstance(msg, bytes):
-            try:
-                msg = msg.decode()
-            except UnicodeDecodeError:
-                pass
-        super().__init__(msg)
+    def __init__(self, msg, output=None, error=None):
+        # print(f"RemoteError:\n  msg = {msg}\n  out = {output}\n  err = {error}")
+        super().__init__(msg, output, error)
 
     @property
-    def traceback(self):
-        return self.args[0]
-
-    @property
-    def msg(self):
+    def exception(self):
         try:
-            return self.args[0].strip().split('\n')[-1]
+            return self.args[2].strip().split('\n')[-1]
         except:
             return self.args[0]
 
+    @property
+    def msg(self):
+        return self.args[0]
+
+    @property
+    def output(self):
+        return self.args[1]
+
+    @property
+    def traceback(self):
+        return self.args[2]
+
+    def __str__(self):
+        return f"{self.msg}: {self.traceback.decode()}"
 
 
-class Output(ABC):
-    """Callbacks for remote code evaluation"""
-    def ans(self, val:bytes):
-        pass
-    def err(self, val:bytes):
-        pass
-
-
-class OutputHelper(Output):
-    def __init__(self):
-        self.ans_ = bytearray()
-        self.err_ = bytearray()
-    def ans(self, val):
-        self.ans_ += val
-    def err(self, val):
-        self.err_ += val
+def default_data_consumer(data:bytes):
+    print(data)
 
 
 class Eval(ABC):
@@ -55,27 +47,17 @@ class Eval(ABC):
         return self._device
 
     @abstractmethod
-    def exec(self, code: str, output:Output=None, *, no_response=False) -> bytes:
+    def exec(self, code: str, data_consumer=None) -> bytes:
         """Exec code on remote (Micro)Python VM.
-
-        If output is None, evaluation results are returned from the function
-        or a ReplExeption is raised in case of an error.
-
-        Otherwise, output and errors are forwarded to the handler as they
-        are received from the remote microcontroller.
-        Used by interactive interfaces.
-
-        Runs until code execution terminates or a KeyboardInterrupt is received.
-        In the latter case, call abort to also terminate the program on the microcontroller.
-
-        :param:no_response: just start command, don't wait or read output
+        If data_consumer is not None, output (from print statements) is
+        passed to it as it becomes available.
+        Otherwise, output is collected and returned as as bytes.
         """
-        pass
-
-    @abstractmethod
-    def softreset(self) -> None:
-        """Reset MicroPython VM"""
 
     @abstractmethod
     def abort(self) -> None:
         """Abort currently running program without resetting the MicroPython VM"""
+
+    @abstractmethod
+    def softreset(self) -> None:
+        """Reset MicroPython VM."""

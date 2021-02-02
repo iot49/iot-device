@@ -14,7 +14,7 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 class EvalRsync(EvalRlist):
     """Add remote file synchronization"""
 
-    def rsync(self, output, *,
+    def rsync(self, data_consumer, *,
             mcu_root = '/',
             projects=['base'],
             include_patterns = ['./**/*.py', './**/'],
@@ -34,7 +34,7 @@ class EvalRsync(EvalRlist):
         if not dry_run:
             # done by individual operations (fput, rm, ...)
             self.sync_time(3)
-        mcu_files = self.rlist(self.device.root, output)
+        mcu_files = self.rlist(self.device.root, data_consumer)
         # excludes
         mcu_files.pop("boot_out.txt", None)
         for f in list(mcu_files):
@@ -48,7 +48,7 @@ class EvalRsync(EvalRlist):
             for d in del_:
                 # delete first (protect against a bug that deletes what was just copied)
                 if not upload_only:
-                    output.ans(colored(f"DELETE  {d}\n", 'red'))
+                    data_consumer(colored(f"DELETE  {d}\n", 'red'))
                     if not dry_run:
                         self.rm_rf(d)
             for a,p in add_.items():
@@ -56,17 +56,17 @@ class EvalRsync(EvalRlist):
                 dst_file = a
                 # no feedback about directory creation
                 if os.path.isfile(src_file):
-                    output.ans(colored(f"COPY    {a}\n", 'green'))
+                    data_consumer(colored(f"COPY    {a}\n", 'green'))
                 if not dry_run:
                     self.fput(src_file, dst_file)
             for u,p in upd_.items():
                 src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, u))
                 dst_file = u
-                output.ans(colored(f"UPDATE  {u}\n", 'blue'))
+                data_consumer(colored(f"UPDATE  {u}\n", 'blue'))
                 if not dry_run:
                     self.fput(src_file, dst_file)
         else:
-            output.ans(colored("Directories match\n", 'green'))
+            data_consumer(colored("Directories match\n", 'green'))
 
     def _diff(self, mcu_files, host_files):
         # determine difference between host (projects) and mcu

@@ -291,7 +291,7 @@ class Pyboard:
     def read_until(self, min_num_bytes, ending, timeout=10, data_consumer=None):
         # if data_consumer is used then data is not accumulated and the ending must be 1 byte long
         assert data_consumer is None or len(ending) == 1
-
+        # print(f"read_until({min_num_bytes}, {ending}, {timeout})")
         data = self.serial.read(min_num_bytes)
         if data_consumer:
             data_consumer(data)

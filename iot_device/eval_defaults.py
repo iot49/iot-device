@@ -1,4 +1,4 @@
-from .eval import Eval, Output, RemoteError
+from .eval import Eval, RemoteError
 import os, logging
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])

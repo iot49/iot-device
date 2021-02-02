@@ -1,4 +1,4 @@
-from .eval import Output, RemoteError, OutputHelper
+from .eval import RemoteError
 from .eval_defaults import EvalDefaults
 import logging, time, os, io, ast
 
@@ -17,9 +17,9 @@ class EvalFileOps(EvalDefaults):
         """rm -rf path"""
         self._remote_exec(f"rm_rf({repr(path)}, {repr(r)}, {repr(f)})")
 
-    def cat(self, path:str, output:Output):
+    def cat(self, path:str, data_consumer=None):
         """Show contents of path on console"""
-        self._remote_exec(f"cat({repr(path)})", output)
+        return self._remote_exec(f"cat({repr(path)})", data_consumer)
 
     def get_time(self):
         """Get struct time from mcu"""
@@ -35,8 +35,8 @@ class EvalFileOps(EvalDefaults):
         """Synchronize mcu time to host if they differ by more than tolerance seconds"""
         self._remote_exec(f"set_time({tuple(time.localtime())}, {tolerance})")
 
-    def rlist(self, path:str, output:Output=None):
-        return self._remote_exec(f"rlist({repr(path)})", output)
+    def rlist(self, path:str, data_consumer=None):
+        return self._remote_exec(f"rlist({repr(path)})", data_consumer)
 
     def fget(self, mcu_file:str, host_file:str, chunk_size:int=256):
         """Copy from microcontroller to host"""
@@ -68,34 +68,18 @@ class EvalFileOps(EvalDefaults):
                 self.exec(f"w({repr(data)})")
         self.exec("f.close()")
 
-    def _remote_exec(self, code:str, output:Output=None):
+    def _remote_exec(self, code:str, data_consumer=None) -> bytes:
         """Execute code on remote; upload code if required"""
-        out = OutputWrapper(output)
-        self.exec(f"exec({repr(code)}, __iot49__)", out)
-        if b'__iot49__' in out.err_.getvalue():
-            # reset error
-            out.ans_ = io.BytesIO()
-            out.err_ = io.BytesIO()
-            # upload __iot49__ and try again
-            self.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
-            self.exec(f"exec({repr(code)}, __iot49__)", out)
-        if len(out.err_.getvalue()):
-            raise RemoteError(out.err_.getvalue().decode())
-        return out.ans_.getvalue() if output == None else output
+        try:
+            return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer)
+        except RemoteError as e:
+            if b'__iot49__' in e.traceback:
+                # upload __iot49__ and try again
+                self.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
+                return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer)
+            else:
+                raise
 
-
-class OutputWrapper(Output):
-    def __init__(self, output):
-        self.out_ = output
-        self.ans_ = io.BytesIO() if output == None else output
-        self.err_ = io.BytesIO()
-    def ans(self, val):
-        if self.out_:
-            self.out_.ans(val)
-        else:
-            self.ans_.write(val)
-    def err(self, val):
-        self.err_.write(val)
 
 ###############################################################################
 # code snippet (runs on remote)

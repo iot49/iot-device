@@ -13,11 +13,10 @@ class Device(ABC):
         """Create device for given URL.
         Retrieves uid from device and raises error if device cannot be contacted.
 
-        :param: url:str  e.g.
+        :param: url:str
+        e.g.
             serial:///dev/cu.usbmodem1413401
-            mp
-
-            ://mcu.com:1234
+            telnet://mcu.com:23
         """
         self._url = url
         # connect to device and retrieve its uid; raise RemoteError if unsuccessful
@@ -26,41 +25,16 @@ class Device(ABC):
             self._uid = repl.exec(_uid).decode()
 
     @abstractmethod
-    def read(self, size=None) -> bytes:
-        """Read all availble data or max size.
-        Not blocking: short read (including b'') if no data availble.
-        Important: May be aborted by KeyboardInterrupt."""
+    def read(self, size=1) -> bytes:
+        """Read bytes. Can be aborted by KeyboardInterrupt."""
 
     @abstractmethod
     def write(self, data: bytes):
         """Writes data to device."""
 
-    def read_until(self, pattern: bytes, timeout=1):
-        """Read until pattern.
-        Intended to be used to check for repl responses.
-        Longer timeout may be required for reboot
-        (if boot.py takes a long time without output).
-        Raises RemoteError if the device is not responsive."""
-        result = bytearray()
-        start = time.monotonic()
-        while not result.endswith(pattern):
-            if (time.monotonic() - start) > timeout:
-                if len(pattern) == 0:
-                    raise TimeoutError(f"No response from {self.url}")
-                raise RemoteError(
-                    f"Unexpected response from {self.url}: got\n"
-                    f"'{result.decode()}'\nexpect\n'{pattern.decode()}'")
-            b = self.read(size=1)
-            if len(b) > 0:
-                # device is responsive, give it more time
-                start = time.monotonic()
-                result.extend(b)
-        return result
-
-    @property
-    def in_waiting(self):
-        # override in SerialDevice
-        return 0
+    @abstractmethod
+    def inWaiting(self):
+        """Number of bytes available for reading without blocking."""
 
     @abstractmethod
     def __enter__(self) -> Eval:
