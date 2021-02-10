@@ -4,6 +4,7 @@ from .eval import RemoteError
 from .repl_protocol import ReplProtocol
 
 from telnetlib import Telnet
+from collections import deque
 import os, select, time, logging
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
@@ -11,43 +12,58 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 class TelnetDevice(Device):
 
     def __init__(self, url):
+        self.use_raw_paste = False
+        self.fifo = deque()
+        self.read_timeout = 10
         super().__init__(url)
 
     def read(self, size=1):
-        sock = self.__telnet.get_socket()
-        res = b''
-        while len(res) < size:
-            r,_,_ = select.select([sock], [], [], 0.1)
-            if r: res += sock.recv(size)
-            if len(res) >= size:
-                return res
-            time.sleep(0.01)
+        while len(self.fifo) < size:
+            timeout_count = 0
+            data = self.__telnet.read_eager()
+            if len(data):
+                self.fifo.extend(data)
+                timeout_count = 0
+            else:
+                time.sleep(0.1)
+                if self.read_timeout is not None and timeout_count > 4 * self.read_timeout:
+                    break
+                timeout_count += 1
 
-    def read_all(self):
-        sock = self.__telnet.get_socket()
-        r,_,_ = select.select([sock], [], [], 0.1)
-        return sock.recv(1024) if r else b''
+        data = b""
+        while len(data) < size and len(self.fifo) > 0:
+            data += bytes([self.fifo.popleft()])
+        return data
 
     def write(self, data):
-        return self.__telnet.get_socket().sent(data)
-        #
-        sock = self.__telnet.get_socket()
+        if len(data) < 220:
+            return self.__telnet.write(data)
+        # slow to avoid communication errors
+        # (esp32 notify buffer overflow)
         chunk_size = 64
         n = 0
         for i in range(0, len(data), chunk_size):
-            n += sock.send(data[i:min(i+chunk_size, len(data))])
+            n += self.__telnet.write(data[i:min(i+chunk_size, len(data))])
             if n < len(data):
                 time.sleep(0.2)
         return n
 
-    def flush_input(self):
-        """Flush input buffer - data from MCU"""
-        self.read_all()
+        self.__telnet.write(data)
+        return len(data)
+
+    def inWaiting(self):
+        n_waiting = len(self.fifo)
+        if not n_waiting:
+            data = self.__telnet.read_eager()
+            self.fifo.extend(data)
+            return len(data)
+        else:
+            return n_waiting
 
     def __enter__(self):
         addr, port = self.address.split(':')
-        self.__telnet = Telnet(addr, port)
-        print("TelnetDevice - enter")
+        self.__telnet = Telnet(addr, port, timeout=15)
+        print(f"TelnetDevice({addr}, {port}) - enter")
         return ReplProtocol(self)
 
     def __exit__(self, type, value, traceback):

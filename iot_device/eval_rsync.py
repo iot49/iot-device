@@ -15,7 +15,6 @@ class EvalRsync(EvalRlist):
     """Add remote file synchronization"""
 
     def rsync(self, data_consumer, *,
-            mcu_root = '/',
             projects=['base'],
             include_patterns = ['./**/*.py', './**/'],
             exclude_patterns = [],
@@ -50,7 +49,7 @@ class EvalRsync(EvalRlist):
                 if not upload_only:
                     data_consumer(colored(f"DELETE  {d}\n", 'red'))
                     if not dry_run:
-                        self.rm_rf(d)
+                        self.rm_rf(os.path.join(self.device.root, d))
             for a,p in add_.items():
                 src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, a))
                 dst_file = a

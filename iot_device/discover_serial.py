@@ -25,10 +25,10 @@ class DiscoverSerial(Discover):
 
     def scan(self):
         # return url's of devices that are online
-        res = []
+        res = set()
         for port in serial.tools.list_ports.comports():
             if port.vid in COMPATIBLE_VID:
-                res.append(f"serial://{port.device}")
+                res.add(f"serial://{port.device}")
             elif port.vid:
                 logger.info(f"Found {port} with unknown VID {port.vid:02X} (ignored)")
         return res

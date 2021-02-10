@@ -72,7 +72,7 @@ class EvalFileOps(EvalDefaults):
         """Execute code on remote; upload code if required"""
         try:
             return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer)
-        except RemoteError as e:
+        except (RemoteError, OSError) as e:
             if b'__iot49__' in e.traceback:
                 # upload __iot49__ and try again
                 self.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
@@ -165,22 +165,4 @@ def rlist(path, level=0):
             pass
     else:
         print("F,{},{},{},{}".format(level, repr(path), mtime, fsize))
-"""
-
-
-"""
-def rm_rf(path):
-    try:
-        mode = os.stat(path)[0]
-        if mode & 0x4000 != 0:
-            for file in os.listdir(path):
-                rm_rf(path + '/' + file)
-            os.rmdir(path)
-        else:
-            os.remove(path)
-    except OSError as e:
-        if e.args[0] == 2:
-            pass
-        else:
-            raise
 """

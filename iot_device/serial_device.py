@@ -31,8 +31,8 @@ class SerialDevice(Device):
             )
             return ReplProtocol(self)
         except (BlockingIOError, SerialException):
-            # raise RemoteError(f"Device {self.url} not available (in use?)")
             raise
+            # raise RemoteError(f"Device {self.url} not available (in use?)")
         except Exception as e:
             raise RemoteError(f"Device {self.url} encountered problem: {e}")
 

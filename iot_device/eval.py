@@ -18,18 +18,23 @@ class RemoteError(Exception):
 
     @property
     def msg(self):
-        return self.args[0]
+        return self.args[0] or b''
 
     @property
     def output(self):
-        return self.args[1]
+        return self.args[1] or b''
 
     @property
     def traceback(self):
-        return self.args[2]
+        return self.args[2] or b''
 
     def __str__(self):
-        return f"{self.msg}: {self.traceback.decode()}"
+        if self.traceback:
+            try:
+                return self.traceback.decode()
+            except UnicodeError:
+                return self.traceback
+        return self.msg
 
 
 def default_data_consumer(data:bytes):

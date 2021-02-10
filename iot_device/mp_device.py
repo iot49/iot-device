@@ -17,62 +17,51 @@ class MpDevice(Device):
     def __init__(self, url):
         super().__init__(url)
 
-    def read(self, size=2048):
-        # timeout set in __enter__
+    def __enter__(self):
+        assert self.scheme == "mp"
+        addr, port = self.address.split(':')
+        self.sock = s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((addr, int(port)))
+        s.settimeout(1)
+        version = self.readline()
+        if version != VERSION: raise RemoteError(f"Version mismatch: client={repr(VERSION)}, server={repr(version)}")
+        s.sendall(Config.get_secret("password", "").encode())
+        s.sendall(b'\n')
+        ok = self.readline()
+        if ok != 'OK': raise RemoteError(f"Expected OK, got {ok}")
+        return MpProtocol(self)
+
+    def __exit__(self, typ, value, traceback):
+        self.sock.sendall(b'bye\n')
         try:
-            return self._socket.recv(size)
-        except socket.timeout:
-            return b''
+            self.sock.close()
+        except:
+            pass
+        self.sock = None
 
     def readline(self, timeout=1):
-        """Not blocking: incomplete 'line' may be returned."""
+        """Blocking"""
         res = b''
         start = time.monotonic()
         # let's give the MCU some time ...
         while (time.monotonic() - start) < timeout:
-            b = self.read(1)
-            if b == b'\n': return res.decode()
+            try:
+                b = self.sock.recv(1)
+            except socket.timeout:
+                time.sleep(0.1)
+                continue
+            if b == b'':
+                raise Exception("connection closed")
+            if b == b'\n':
+                return res.decode()
             res += b
         return res.decode()
 
+    def read(self, size):
+        raise RuntimeError("MpDevice read()")
+
     def write(self, data):
-        self._socket.sendall(data)
+        raise RuntimeError("MpDevice write()")
 
-    def writeline(self, data):
-        self.write(data)
-        self.write(b'\n')
-
-    def __enter__(self):
-        self._connect()
-        return MpProtocol(self)
-
-    def __exit__(self, typ, value, traceback):
-        self.writeline(b'bye')
-        try:
-            self._socket.close()
-        except:
-            pass
-        self._socket = None
-
-    def _connect(self):
-        try:
-            ip, port = self.address.split(':')
-        except ValueError:
-            raise RemoteError(f"Not a valid address: {self.address}")
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.settimeout(1)
-        try:
-            self._socket.connect((ip, int(port)))
-        except (socket.gaierror, OSError):
-            print(f"mpdev cannot access {self.url}")
-            raise RemoteError(f"Cannot access {self.url}")
-        self._socket.settimeout(0.1)
-        version = self.readline()
-        if version == '':
-            raise RemoteError(f"No answer from {self.url}")
-        if version != VERSION:
-            raise RemoteError(f"Version mismatch: got '{version}', expected '{VERSION}' for {url}")
-        self.writeline(Config.get_secret('password', '').encode())
-        ok = self.readline()
-        if ok != 'OK':
-            raise RemoteError(f"{ok} ({url})")
+    def inWaiting(self):
+        raise RuntimeError("MpDevice inWaiting()")

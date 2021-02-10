@@ -2,7 +2,7 @@ from .eval import RemoteError
 from .device import Device
 from .discover_serial import DiscoverSerial
 from .discover_mdns import DiscoverMdns
-from contextlib import contextmanager
+from serial import SerialException
 import os, logging, threading, time
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
@@ -16,6 +16,8 @@ class DeviceRegistry:
         self._discover_mdns = DiscoverMdns()
         # map url -> device
         self._devices = {}
+        # map url -> time of last attempt
+        self._registration_failed = {}
 
     @property
     def devices(self) -> frozenset:
@@ -26,7 +28,7 @@ class DeviceRegistry:
     def get_device(self, name: str, schemes=None) -> Device:
         """Device with given name/uid/url & schemes."""
         if schemes == None or len(schemes) == 0:
-            schemes = ['mp', 'serial', 'telnet', 'ws']
+            schemes = ['serial', 'ws', 'mp']
         self._update()
         for scheme in schemes:
             for dev in self._devices.values():
@@ -37,7 +39,7 @@ class DeviceRegistry:
     def _update(self):
         # update database ...
         urls = self._discover_serial.scan()
-        urls.extend(self._discover_mdns.scan())
+        urls |= self._discover_mdns.scan()
         # 1) purge database of devices that are no longer available
         now = time.monotonic()
         for k in list(self._devices.keys()):
@@ -62,17 +64,27 @@ class DeviceRegistry:
                      Default: None, no automatic unregistering.
                      Calling register (repeatedly) resets age to 0.
         """
+        if url in self._registration_failed.keys():
+            if (time.monotonic() - self._registration_failed[url]) < 10:
+                logger.error(f"skipping failed registration for {url}")
+                return
+            del self._registration_failed[url]
         if url in self._devices.keys():
             # already in database
             self._devices[url].last_seen = time.monotonic()
             return
         # create a new device
         device_class = find_device_class(url)
-        device = device_class(url)
+        try:
+            device = device_class(url)
+        except Exception as e:
+            self._registration_failed[url] = time.monotonic()
+            logger.error(f"Cannot register {url}: {e}")
+            return
         device.max_age = max_age
         device.last_seen = time.monotonic()
         self._devices[url] = device
-        logger.debug(f"registering {device.name} {device.uid} {url}")
+        logger.error(f"registered {device.name} {device.uid} {url}")
 
     def unregister(self, name:str):
         """Unregister device (by name, uid, or url)"""

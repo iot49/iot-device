@@ -3,6 +3,7 @@ from .eval_rsync import EvalRsync
 from .config_store import Config
 from .pyboard import PyboardError
 from .pydevice import Pydevice
+from websocket import WebSocketException
 import logging, os
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
@@ -20,13 +21,21 @@ class ReplProtocol(EvalRsync):
 
     def exec(self, code: str, data_consumer=None) -> bytes:
         try:
-            return self.pyboard.exec(code, data_consumer)
+            res = self.pyboard.exec(code, data_consumer)
+            # Don't try to use raw-paste mode again unless supported by this device
+            self.device.use_raw_paste = self.pyboard.use_raw_paste
+            return res
+        except OSError as e:
+            raise RemoteError("Device disconnected")
         except PyboardError as e:
             raise RemoteError(*e.args)
 
     def softreset(self) -> None:
         try:
             self.pyboard.softreset()
+        except WebSocketException as e:
+            # Connection is already closed
+            pass
         except PyboardError as e:
             logger.exception(f"softreset: {e}")
             raise RemoteError(*e.args)

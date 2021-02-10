@@ -17,9 +17,11 @@ CR                = b'\r'
 
 class Pydevice(Pyboard):
 
-    def __init__(self, device, use_raw_paste=True):
+    def __init__(self, device):
         """Pyboard with a different initializer."""
-        self.use_raw_paste = use_raw_paste
+        if not hasattr(device, 'use_raw_paste'):
+            device.use_raw_paste = True
+        self.use_raw_paste = device.use_raw_paste
         self.serial = device
 
     def enter_raw_repl(self):
@@ -37,6 +39,12 @@ class Pydevice(Pyboard):
             print(data)
             raise PyboardError(f"could not enter raw repl:\n  expected '{RAW_REPL_MSG}'\n  got '{data}'")
 
+    def exec(self, command, data_consumer=None):
+        self.exec_raw_no_follow(command)
+        ret, ret_err = self.follow(timeout=None, data_consumer=data_consumer)
+        if ret_err:
+            raise PyboardError("exception", ret, ret_err)
+        return ret
 
     def softreset(self):
         device = self.serial

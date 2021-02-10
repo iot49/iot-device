@@ -1,7 +1,6 @@
 from .discover import Discover
-from .mp_device import MpDevice
 
-from zeroconf import ServiceBrowser, Zeroconf
+from zeroconf import Zeroconf, ServiceBrowser, ServiceStateChange
 import os, socket, logging, threading, time
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
@@ -10,57 +9,55 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 class DiscoverMdns(Discover):
     """zeroconf device discovery"""
 
-    def __init__(self, scan_rate:float=1):
+    def __init__(self, scan_rate:float=5):
         """Start a daemon thread that continually scans ports every scan_rate seconds."""
         super().__init__()
         self.scan_rate = scan_rate
-        th = threading.Thread(target=self._scanner, args=(scan_rate,), name="zeroconf scanner")
+        self.url_lock = threading.Lock()
+        self.urls = {}
+        th = threading.Thread(target=self._scanner, name="zeroconf scanner")
         th.setDaemon(True)
         th.start()
-        self._scan_thread = th
 
     def scan(self):
-        return []
+        # return url's of devices that are online
+        res = set()
+        with self.url_lock:
+            for u,t in self.urls.items():
+                if time.monotonic() - t < 3*self.scan_rate:
+                    res.add(u)
+        return res
 
-    def _on_change(self, zeroconf, service_type, name, state_change):
+    def _url(self, zeroconf, service_type, name):
         info = zeroconf.get_service_info(service_type, name)
-        if not info: return
+        if info == None: return
         ip = socket.inet_ntoa(info.addresses[0])
         port = info.port
         url = f"{self.scheme(service_type)}://{ip}:{port}"
-        self.discovered.append(url)
+        return url
 
-    def _register(self):
-        # Note: don't register from on_change as this may result in a race condition
-        for url in self.discovered:
-            try:
-                # logger.info(f"register {url}")
-                DeviceRegistry.register(url, 2*self.scan_rate)
-            except ConnectionResetError:
-                logger.warn(f"Connection to {url} reset")
-            except ConnectionRefusedError:
-                logger.warn(f"Connection to {url} refused")
-            except Exception as e:
-                logger.exception(f"Unhandled exception in DiscoverMdns._register")
+    def add_service(self, zeroconf, service_type, name):
+        self.urls[self._url(zeroconf, service_type, name)] = time.monotonic()
 
-    def _scanner(self, scan_rate: float):
+    def remove_service(self, zeroconf, service_type, name):
+        del self.urls[self._url(zeroconf, service_type, name)]
+
+    def _scanner(self):
+        # keep rescanning: remove_service not called if server (e.g. ESP32)
+        # crashes or is reset without calling mdns_remove_service
         while True:
-            # Discover
             zc = Zeroconf()
-            self.discovered = []
             try:
-                ServiceBrowser(zc, "_mp._tcp.local.", handlers=[self._on_change])
-                ServiceBrowser(zc, "_ws._tcp.local.", handlers=[self._on_change])
-                ServiceBrowser(zc, "_telnet._tcp.local.", handlers=[self._on_change])
-                time.sleep(scan_rate)
+                ServiceBrowser(zc, "_mp._tcp.local.", self)
+                ServiceBrowser(zc, "_ws._tcp.local.", self)
+                ServiceBrowser(zc, "_telnet._tcp.local.", self)
+                self.discovered = []
+                time.sleep(self.scan_rate)
             except Exception as ex:
                 print(ex)
                 logger.exception(f"Unhandled exception in DiscoverMdns._scanner")
             finally:
                 zc.close()
-            self._register()
-
-
 
     def scheme(self, type):
         return type.split('.')[0][1:]
