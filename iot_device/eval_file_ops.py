@@ -11,19 +11,19 @@ class EvalFileOps(EvalDefaults):
 
     def makedirs(self, path:str):
         """Make all directories required for path. No-op if directories exist."""
-        self._remote_exec(f"makedirs({repr(path)})")
+        self._remote_exec(f"makedirs({repr(path)})", _makedirs_func)
 
     def rm_rf(self, path:str, r:bool=True, f:bool=True):
         """rm -rf path"""
-        self._remote_exec(f"rm_rf({repr(path)}, {repr(r)}, {repr(f)})")
+        self._remote_exec(f"rm_rf({repr(path)}, {repr(r)}, {repr(f)})", _rm_rf_func)
 
     def cat(self, path:str, data_consumer=None):
         """Show contents of path on console"""
-        return self._remote_exec(f"cat({repr(path)})", data_consumer)
+        return self._remote_exec(f"cat({repr(path)})", _cat_func, data_consumer=data_consumer)
 
     def get_time(self):
         """Get struct time from mcu"""
-        st = self._remote_exec(f"get_time()")
+        st = self._remote_exec(f"get_time()", _time_funcs)
         if not st:
             raise RemoteError(f"Cannot read time from {self.device.name}")
         st = eval(st.decode())
@@ -33,10 +33,7 @@ class EvalFileOps(EvalDefaults):
 
     def sync_time(self, tolerance:float=5):
         """Synchronize mcu time to host if they differ by more than tolerance seconds"""
-        self._remote_exec(f"set_time({tuple(time.localtime())}, {tolerance})")
-
-    def rlist(self, path:str, data_consumer=None):
-        return self._remote_exec(f"rlist({repr(path)})", data_consumer)
+        self._remote_exec(f"set_time({tuple(time.localtime())}, {tolerance})", _time_funcs)
 
     def fget(self, mcu_file:str, host_file:str, chunk_size:int=256):
         """Copy from microcontroller to host"""
@@ -68,38 +65,40 @@ class EvalFileOps(EvalDefaults):
                 self.exec(f"w({repr(data)})")
         self.exec("f.close()")
 
-    def _remote_exec(self, code:str, data_consumer=None) -> bytes:
+    def _remote_exec(self, code:str, func:str, data_consumer=None) -> bytes:
         """Execute code on remote; upload code if required"""
         try:
+            logger.debug(f"_remote_exec({code})")
             return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer)
-        except (RemoteError, OSError) as e:
-            if b'__iot49__' in e.traceback:
-                # upload __iot49__ and try again
-                self.exec(f"import os\n__iot49__ = {'{}'}\nexec({repr(_remote_functions)}, __iot49__)")
-                return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer)
-            else:
-                raise
+        except (RemoteError, OSError):
+            # upload __iot49__ and try again
+            logger.debug(f"_remote_exec: upload {func}")
+            self.exec("if not '__iot49__' in globals(): __iot49__ = {}")
+            self.exec(f"exec({repr(func)}, __iot49__)")
+            logger.debug("_remote_exec: 2nd try")
+            return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer)
 
 
 ###############################################################################
-# code snippet (runs on remote)
+# code snippets (run on remote)
 
-_remote_functions = """
-import os, time
-
+_makedirs_func = """
+import os
 def makedirs(path):
     try:
         os.mkdir(path)
     except OSError as e:
-        if e.args[0] == 2:
-            # no such file or directory, create parent first
+        if e.args[0]==2:
             makedirs(path[:path.rfind('/')])
             os.mkdir(path)
-        elif e.args[0] == 17:
+        elif e.args[0]==17:
             pass
         else:
             raise
+"""
 
+_rm_rf_func = """
+import os
 def rm_rf(path, r, f):
     mode = os.stat(path)[0]
     if mode & 0x4000 != 0:
@@ -110,7 +109,9 @@ def rm_rf(path, r, f):
             os.rmdir(path)
     else:
         os.remove(path)
+"""
 
+_cat_func = """
 def cat(path):
     with open(path) as f:
         while True:
@@ -118,51 +119,26 @@ def cat(path):
             if not line:
                 break
             print(line, end="")
+"""
 
+_time_funcs = """
+import time
 def get_time():
     print(tuple(time.localtime()), end="")
 
 def set_time(st, tolerance=5):
     host  = time.mktime(st)
     local = time.time()
+    # delete this comment, stops working with ws
     if abs(host-local) < tolerance:
         return
     try:
-        # CircuitPython
         import rtc
         rtc.RTC().datetime = st
     except ImportError:
-        # MicroPython
-        import machine
-        # convert to Micropython's non-standard ordering ...
+        import machine as m
         st = list(st)
         st.insert(3, st[6])
         st[7] = 0
-        machine.RTC().datetime(st[:8])
-
-t_off = 0
-try:
-    import machine
-    t_off = 946684800
-except ImportError:
-    pass
-
-def rlist(path, level=0):
-    stat = os.stat(path)
-    fsize = stat[6]
-    mtime = stat[7] + t_off
-    if stat[0] & 0x4000:
-        os.chdir(path)
-        d = os.listdir()
-        print("D,{},{},{},{}".format(level, repr(path), mtime, len(d)))
-        for p in sorted(d):
-            if p.startswith('.'): continue
-            rlist(p, level+1)
-        try:
-            # loboris esp32 throws error when in /flash
-            os.chdir('..')
-        except:
-            pass
-    else:
-        print("F,{},{},{},{}".format(level, repr(path), mtime, fsize))
+        m.RTC().datetime(st[:8])
 """

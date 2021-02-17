@@ -21,6 +21,10 @@ class Config:
     }
 
     @staticmethod
+    def iot49_dir():
+        return Config.__CONFIG_FOLDER
+
+    @staticmethod
     def get(name, default=None, *, attribute=None):
         """Get configuration value
         Examples:

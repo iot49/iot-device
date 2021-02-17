@@ -38,8 +38,7 @@ class DeviceRegistry:
 
     def _update(self):
         # update database ...
-        urls = self._discover_serial.scan()
-        urls |= self._discover_mdns.scan()
+        urls = self._discover_serial.scan() | self._discover_mdns.scan()
         # 1) purge database of devices that are no longer available
         now = time.monotonic()
         for k in list(self._devices.keys()):
@@ -54,7 +53,7 @@ class DeviceRegistry:
                 self.register(url, 0.5)
             except (ValueError, RemoteError) as e:
                 # leave this print statement - will show up in jupyter!
-                print(f"Failed to register {url}: {e}")
+                print(f"\nFailed to register {url}:\n{e}\n")
                 logger.info(f"Failed to register {url}: {e}")
 
     def register(self, url:str, max_age:float=None):
@@ -66,7 +65,7 @@ class DeviceRegistry:
         """
         if url in self._registration_failed.keys():
             if (time.monotonic() - self._registration_failed[url]) < 10:
-                logger.error(f"skipping failed registration for {url}")
+                logger.info(f"skipping failed registration for '{url}'")
                 return
             del self._registration_failed[url]
         if url in self._devices.keys():
@@ -74,17 +73,19 @@ class DeviceRegistry:
             self._devices[url].last_seen = time.monotonic()
             return
         # create a new device
+        logger.debug(f"register {url}")
         device_class = find_device_class(url)
         try:
             device = device_class(url)
         except Exception as e:
             self._registration_failed[url] = time.monotonic()
-            logger.error(f"Cannot register {url}: {e}")
+            print(f"Registration failed for {url}: {e}")
+            logger.error(f"Registration failed for {url}: {e}")
             return
         device.max_age = max_age
         device.last_seen = time.monotonic()
         self._devices[url] = device
-        logger.error(f"registered {device.name} {device.uid} {url}")
+        logger.info(f"registered {device.name} {device.uid} {url}")
 
     def unregister(self, name:str):
         """Unregister device (by name, uid, or url)"""
@@ -94,9 +95,9 @@ class DeviceRegistry:
                 url = v.url
                 break
         if not url:
-            raise ValueError(f"Device not in registry")
+            raise ValueError(f"Device '{name}' not in registry")
         del self._devices[url]
-        logger.debug(f"unregisted {url}")
+        logger.debug(f"unregisted '{url}'")
 
 
 def find_device_class(url):

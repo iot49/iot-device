@@ -1,4 +1,3 @@
-tests/
 docs/
 old/
 tmp/
@@ -15,6 +14,7 @@ build
 .github
 .gitignore
 .pypi-template
+.pytest_cache
 .envrc
 .direnv
 *.sh

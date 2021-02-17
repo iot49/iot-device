@@ -24,7 +24,7 @@ class MpProtocol(EvalRsync):
         if ok != 'OK': raise RemoteError(f"eval: expected OK, got {ok}")
         # read result
         res = self.read_until_eot(data_consumer)
-        err = self.read_until_eot(data_consumer)
+        err = self.read_until_eot(None)
         if len(err) > 0:
             raise RemoteError("", res, err)
         return res

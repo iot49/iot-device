@@ -28,15 +28,16 @@ class WebreplDevice(Device):
             time.sleep(0.01)
 
     def write(self, data):
-        if len(data) < 250:
+        if len(data) < 252:
             return self.__ws.send(data)
-        # slow to avoid communication errors
+        # slow down to avoid communication errors
         chunk_size = 64
         n = 0
         for i in range(0, len(data), chunk_size):
+            logger.debug(f"webrepl_device.write({data[i:min(i+chunk_size, len(data))]})")
             n += self.__ws.send(data[i:min(i+chunk_size, len(data))])
             if n < len(data):
-                time.sleep(0.2)
+                time.sleep(0.5)
         return n
 
     def __enter__(self):

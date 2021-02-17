@@ -16,7 +16,7 @@ class EvalRsync(EvalRlist):
 
     def rsync(self, data_consumer, *,
             projects=['base'],
-            include_patterns = ['./**/*.py', './**/'],
+            include_patterns = ['./**/*.py', './**/*.mpy', './**/'],
             exclude_patterns = [],
             implementation='micropython',
             dry_run=True,
@@ -114,11 +114,12 @@ class EvalRsync(EvalRlist):
                                 # check if a compiled version is available
                                 mpy = src[:-3] + '.mpy'
                                 proj = f".{project}-{implementation}"
-                                mpy_file = os.path.join('..', proj, mpy)
+                                mpy_file = os.path.join(Config.iot49_dir(), proj, mpy)
                                 if os.path.isfile(mpy_file):
                                     mpy_mtime = os.path.getmtime(mpy_file)
                                     if mpy_mtime >= mtime:
                                         # compiled file available & newer
+
                                         result.pop(src, None)
                                         result[mpy] = (proj, mpy_mtime, os.path.getsize(mpy_file))
                                         continue

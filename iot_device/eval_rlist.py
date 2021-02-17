@@ -17,7 +17,7 @@ class EvalRlist(EvalFileOps):
         cwd = self.exec('print(os.getcwd(), end="")').decode()
         try:
             self.exec(f'os.chdir({repr(path)})')
-            self._remote_exec(f"rlist('')", out.data_consumer)
+            self._remote_exec(f"rlist('')", _rlist_func, out.data_consumer)
         except RemoteError as e:
             raise
         finally:
@@ -95,3 +95,35 @@ class RlistOutput(TZ):
                     elif len(self._files) > 50 and len(self._files) % 10 == 0:
                         # show progress
                         self._output('.')
+
+
+###############################################################################
+# code snippet (runs on remote)
+
+_rlist_func = """
+t_off = 0
+try:
+    import machine
+    t_off = 946684800
+except ImportError:
+    pass
+
+import os
+def rlist(path, level=0):
+    stat = os.stat(path)
+    fsize = stat[6]
+    mtime = stat[7] + t_off
+    if stat[0] & 0x4000:
+        os.chdir(path)
+        d = os.listdir()
+        print("D,{},{},{},{}".format(level, repr(path), mtime, len(d)))
+        for p in sorted(d):
+            if p.startswith('.'): continue
+            rlist(p, level+1)
+        try:
+            os.chdir('..')
+        except:
+            pass
+    else:
+        print("F,{},{},{},{}".format(level, repr(path), mtime, fsize))
+"""
