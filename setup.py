@@ -16,7 +16,7 @@ setuptools.setup(
     version=version.__version__,
     packages=[ 'iot_device' ],
     author="Bernhard Boser",
-    description="Communication with IoT Device (MicroPython) over serial, internet, ...",
+    description="Communication with MicroPython device over serial, internet, ...",
     long_description="none",
     long_description_content_type="text/markdown",
     license="MIT",
@@ -35,5 +35,5 @@ setuptools.setup(
         ],
     },
     scripts = [ 'iot_server.sh', 'iot_registry.sh' ],
-    python_requires='>=3.8',
+    python_requires='>=3.7',
 )

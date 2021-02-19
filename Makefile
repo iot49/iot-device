@@ -8,6 +8,7 @@ dist:
 publish-test: clean dist
 	twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
+# login: t_m/O_5
 publish: clean dist
 	twine upload dist/*
 
@@ -16,7 +17,7 @@ install-local: clean dist
 
 test:
 	cd tests; pytest iot_device
-	# cd tests; pytest airlift
+	cd tests; pytest airlift
 
 coverage: test
 	coverage report
