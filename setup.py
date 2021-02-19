@@ -29,11 +29,6 @@ setuptools.setup(
     ],
     install_requires=install_requires,
     include_package_data=True,
-    entry_points = {
-        'console_scripts': [
-            'iot_server=iot_device.device_server:main',
-        ],
-    },
-    scripts = [ 'iot_server.sh', 'iot_registry.sh' ],
     python_requires='>=3.7',
+    zip_safe = True,
 )
