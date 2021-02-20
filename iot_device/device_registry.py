@@ -79,8 +79,10 @@ class DeviceRegistry:
             device = device_class(url)
         except Exception as e:
             self._registration_failed[url] = time.monotonic()
-            print(f"Registration failed for {url}: {e}")
-            logger.error(f"Registration failed for {url}: {e}")
+            msg = str(e)
+            if url.startswith('ws'): msg += " (wrong password?)"
+            print(f"Registration failed for {url}: {msg}")
+            logger.error(f"Registration failed for {url}: {msg}")
             return
         device.max_age = max_age
         device.last_seen = time.monotonic()
