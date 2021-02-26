@@ -1,5 +1,4 @@
 from .device import Device
-from .config_store import Config
 from .eval import RemoteError
 from .repl_protocol import ReplProtocol
 

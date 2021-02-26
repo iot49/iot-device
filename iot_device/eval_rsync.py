@@ -1,130 +1,123 @@
 from .eval import RemoteError
 from .eval_rlist import EvalRlist
-from .config_store import Config
 from .utilities import cd
+from .config import Config
 
 from termcolor import colored
 from glob import glob
 from fnmatch import fnmatch
+from collections import OrderedDict
 
 import time, os, logging
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
+"""File naming conventions:
+
+Config.Package.files() returns:
+    $IOT49 / path=package / name=file_path
+
+Location of files on HOST & MCU:
+    HOST:       $IOT49 / package / file_path
+    MCU:        dest / file_path = full_path
+
+mcu_files:
+    dict[full_path] = (mtime, size)
+
+host_files:
+    host_path = os.path.join(package, file_path)
+    dict[full_path] = (mtime, size, host_path)
+"""
+
 class EvalRsync(EvalRlist):
     """Add remote file synchronization"""
 
     def rsync(self, data_consumer, *,
-            projects=['base'],
-            include_patterns = ['./**/*.py', './**/*.mpy', './**/'],
-            exclude_patterns = [],
-            implementation='micropython',
             dry_run=True,
             upload_only=True):
         # synchronize micrcontroller flash to host
-        #   project: list of projects to synchronize
-        #   implementation: mpy architecture
-        #   include_patterns: host_files, using glob
-        #   exclude_patterns: host_files, using fnmatch
         #   dry_run: only print out differences, do not copy any files
         #   upload_only: do not delete files on microcontroller that are not also on host
-        logger.debug(f"rsync projects={projects}")
-        # sync mcu time to host if they differ by more than 3 seconds
         if not dry_run:
-            # done by individual operations (fput, rm, ...)
+            # sync mcu time to host if they differ by more than 3 seconds
             self.sync_time(3)
-        mcu_files = self.rlist(self.device.root, data_consumer)
-        # excludes
-        mcu_files.pop("boot_out.txt", None)
-        for f in list(mcu_files):
-            for exclude_pattern in exclude_patterns:
-                if fnmatch(f, exclude_pattern):
-                    mcu_files.pop(f, None)
-        host_files = self._host_files(projects, include_patterns, exclude_patterns, implementation)
-        add_, del_, upd_ = self._diff(mcu_files, host_files)
-        if add_ or del_ or upd_:
-            # print(add_, del_, upd_)
-            for d in del_:
+        # mcu files & excludes
+        mcu_files = self.rlist('/', data_consumer)
+        mcu_files.pop("/boot_out.txt", None)
+        # host files
+        host_files = self._host_files()
+        del_, add_, upd_ = self._diff(mcu_files, host_files)
+        with cd(Config.iot49_dir()):
+            same = True
+            for dst_file in del_:
                 # delete first (protect against a bug that deletes what was just copied)
                 if not upload_only:
-                    data_consumer(colored(f"DELETE  {d}\n", 'red'))
+                    same = False
+                    data_consumer(colored(f"DELETE  {dst_file}\n", 'red'))
                     if not dry_run:
-                        self.rm_rf(os.path.join(self.device.root, d))
-            for a,p in add_.items():
-                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, a))
-                dst_file = a
+                        self.rm_rf(dst_file)
+            for dst_file, src_file in add_.items():
                 # no feedback about directory creation
                 if os.path.isfile(src_file):
-                    data_consumer(colored(f"COPY    {a}\n", 'green'))
+                    same = False
+                    data_consumer(colored(f"ADD     {dst_file}\n", 'green'))
                 if not dry_run:
                     self.fput(src_file, dst_file)
-            for u,p in upd_.items():
-                src_file = os.path.expanduser(os.path.join(Config.get('host_dir'), p, u))
-                dst_file = u
-                data_consumer(colored(f"UPDATE  {u}\n", 'blue'))
+            for dst_file, src_file in upd_.items():
+                same = False
+                data_consumer(colored(f"UPDATE  {dst_file}\n", 'blue'))
                 if not dry_run:
                     self.fput(src_file, dst_file)
-        else:
+        if same:
             data_consumer(colored("Directories match\n", 'green'))
 
     def _diff(self, mcu_files, host_files):
         # determine difference between host (projects) and mcu
-        # add files from host
-        to_add = host_files.keys() - mcu_files.keys()
         # delete files not on host
         to_delete = mcu_files.keys() - host_files.keys()
+        # add files from host
+        to_add = host_files.keys() - mcu_files.keys()
         # in both: may need updating
         to_update = set()
         for u in mcu_files.keys() & host_files.keys():
             mcu_time, mcu_size = mcu_files[u]
-            _, host_time, host_size = host_files[u]
-            # size < 0 indicates directory
-            if (mcu_size != host_size) or ((mcu_time < host_time) and mcu_size >= 0):
-                # print(f"***** update {u}:  (m {mcu_size} != h {host_size}) or (({mcu_time < host_time}) and {mcu_size >= 0})")
-                # print(f"mcu_time={mcu_time}  host_time={host_time}  m-h={mcu_time - host_time}")
+            host_time, host_size, _ = host_files[u]
+            # mcu_size < 0 indicates directory
+            if mcu_size < 0: continue
+            if mcu_size != host_size or mcu_time < host_time:
                 to_update.add(u)
-        # convert to_add and to_update to dicts pointing to project
+        # convert to_add and to_update to ordered dicts full_path --> host_path
         return (
-            { k: host_files[k][0] for k in to_add },
             sorted(to_delete, reverse=True),
-            { k: host_files[k][0] for k in to_update }
+            OrderedDict(sorted({ k: host_files[k][-1] for k in to_add }.items())),
+            OrderedDict(sorted({ k: host_files[k][-1] for k in to_update }.items()))
         )
 
-    def _host_files(self, projects=['base'],
-                    include_patterns = ['./**/*', './**/'],
-                    exclude_patterns = [],
-                    implementation='micropython'):
-        # returns { dict filename -> (project, mtime, size) }
+    def _host_files(self):
+        # returns { dict mcu_filename -> (mtime, size, host_filename) }
         result = {}
-        for project in projects:
-            try:
-                with cd(os.path.join(Config.get('host_dir'), project)):
-                    for include_pattern in include_patterns:
-                        for src in glob(include_pattern, recursive=True):
-                            # excludes
-                            for exclude_pattern in exclude_patterns:
-                                if fnmatch(src, exclude_pattern):
-                                    src = None
-                                    break
-                            if not src or src == './': continue
-                            src = os.path.normpath(src)
-                            mtime = os.path.getmtime(src)
-                            size = -1 if os.path.isdir(src) else os.path.getsize(src)
-                            if os.path.isfile(src) and src.endswith('.py'):
-                                # check if a compiled version is available
-                                mpy = src[:-3] + '.mpy'
-                                proj = f".{project}-{implementation}"
-                                mpy_file = os.path.join(Config.iot49_dir(), proj, mpy)
-                                if os.path.isfile(mpy_file):
-                                    mpy_mtime = os.path.getmtime(mpy_file)
-                                    if mpy_mtime >= mtime:
-                                        # compiled file available & newer
-
-                                        result.pop(src, None)
-                                        result[mpy] = (proj, mpy_mtime, os.path.getsize(mpy_file))
-                                        continue
-                            result[src] = (project, mtime, size)
-            except ValueError: #FileNotFoundError:
-                logger.warn("Project directory not found, {project}. Skipping.")
-            # for k, v in result.items(): print(f"host_file {k:30} {v}")
+        # add folder so it won't be deleted
+        result['/'] = (0, -1, '')
+        pkgs = self.device.packages
+        implementation = self.implementation
+        with cd(Config.iot49_dir()):
+            for pkg in pkgs:
+                dest = Config.get_device(self.device.name).get_package_dest(pkg.name)
+                # add folder so it won't be deleted
+                # result[dest] = ('', 0, -1, '')
+                for file_path, package in pkg.files().items():
+                    src = os.path.join(package, file_path)
+                    mtime = os.path.getmtime(src)
+                    size = -1 if os.path.isdir(src) else os.path.getsize(src)
+                    if file_path.endswith('.py'):
+                        # check if we have a compiled version
+                        mpy_src = os.path.join('.compiled', implementation, src.replace('.py', '.mpy'))
+                        if os.path.isfile(mpy_src):
+                            mpy_mtime = os.path.getmtime(mpy_src)
+                            if mpy_mtime >= mtime:
+                                # compiled file is newer
+                                src = mpy_src
+                                mtime = mpy_mtime
+                                size = os.path.getsize(mpy_file)
+                    result[os.path.normpath(os.path.join(dest, file_path))] = (int(mtime), size, src)
         return result

@@ -1,5 +1,5 @@
 from .eval import Eval, RemoteError
-from .config_store import Config
+from .config import Config
 
 from abc import ABC, abstractmethod
 import os, threading, time, logging
@@ -72,17 +72,11 @@ class Device(ABC):
     @property
     def name(self) -> str:
         """Device name"""
-        return Config.get_device(self.uid, 'name', self.uid)
+        return Config.get_device(self.uid).name or self.uid
 
     @property
-    def projects(self) -> list:
-        """Projects folders of this device, convenience method"""
-        return Config.get_device(self.uid, 'projects', ['base'])
-
-    @property
-    def root(self) -> str:
-        """Root of file system on remote (e.g. /flash on pyboard)"""
-        return Config.get_device(self.uid, 'root', '/')
+    def packages(self):
+        return Config.get_device(self.uid).get_packages()
 
 
 ###############################################################################

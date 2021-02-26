@@ -1,10 +1,11 @@
-from .config_store import Config
 from contextlib import contextmanager
 import sys, os
 
 
 @contextmanager
-def cd(path=Config.iot49_dir()):
+def cd(path=None):
+    from .config import Config
+    path = path or Config.iot49_dir()
     cwd = os.getcwd()
     os.chdir(os.path.expandvars(os.path.expanduser(path)))
     try:

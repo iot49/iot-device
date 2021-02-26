@@ -10,18 +10,13 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 class EvalRlist(EvalFileOps):
     """Add file listing capabilities"""
 
-    def rlist(self, path, data_consumer=None, show=False):
-        """Return and opionally display files stored on remote"""
+    def rlist(self, path='/', data_consumer=None, show=False):
+        """Return and optionally display files stored on remote"""
         out = RlistOutput(data_consumer, show)
-        self.exec('import os')
-        cwd = self.exec('print(os.getcwd(), end="")').decode()
         try:
-            self.exec(f'os.chdir({repr(path)})')
-            self._remote_exec(f"rlist('')", _rlist_func, out.data_consumer)
+            self._remote_exec(f"rlist({repr(path)})", _rlist_func, out.data_consumer)
         except RemoteError as e:
             raise
-        finally:
-            self.exec(f'os.chdir({repr(cwd)})')
         return out.files
 
 
@@ -64,10 +59,10 @@ class RlistOutput(TZ):
 
     def data_consumer(self, b):
         # b could be any fragment or combination of lines!
-        self._line_buffer += b
+        # Drop \x04 returned after softreset (???)
+        self._line_buffer += b.replace(b'\x04', b'')
         while b'\r\n' in self._line_buffer:
             line, self._line_buffer = self._line_buffer.split(b'\r\n', 1)
-            # print(f"rlist: line = {line}")
             kind, level, path, mtime, size = line.split(b',')
             path = eval(path)
             if len(path)<=0: continue
@@ -84,14 +79,14 @@ class RlistOutput(TZ):
                 if level != 0:
                     if self._show and self._output:
                         path += '/'
-                        self._output(f"{' ':7}  {' ':18} {self._indent(level-1)}{colored(path, 'green')}\n")
+                        self._output(f"{' ':7}  {' ':18} {self._indent(level)}{colored(path, 'green')}\n")
                 else:
                     self._level_offset = -1
             else:
                 self._files[full_path] = (mtime, size)
                 if self._output:
                     if self._show:
-                        self._output(f"{int(size):7}  {mtime_fmt:18} {self._indent(level-1)}{colored(path, 'blue')}\n")
+                        self._output(f"{int(size):7}  {mtime_fmt:18} {self._indent(level)}{colored(path, 'blue')}\n")
                     elif len(self._files) > 50 and len(self._files) % 10 == 0:
                         # show progress
                         self._output('.')
@@ -114,16 +109,13 @@ def rlist(path, level=0):
     fsize = stat[6]
     mtime = stat[7] + t_off
     if stat[0] & 0x4000:
+        up = os.getcwd()
         os.chdir(path)
-        d = os.listdir()
-        print("D,{},{},{},{}".format(level, repr(path), mtime, len(d)))
-        for p in sorted(d):
+        print("D,{},{},{},-1".format(level, repr(path), mtime))
+        for p in sorted(os.listdir()):
             if p.startswith('.'): continue
             rlist(p, level+1)
-        try:
-            os.chdir('..')
-        except:
-            pass
+        os.chdir(up)
     else:
         print("F,{},{},{},{}".format(level, repr(path), mtime, fsize))
 """

@@ -1,6 +1,6 @@
 from .device_registry import DeviceRegistry
 from .certificate import create_key_cert_pair
-from .config_store import Config
+from .config import Config
 
 from zeroconf import ServiceInfo, Zeroconf
 from serial import SerialException
@@ -36,7 +36,7 @@ class AdvertiseServer:
         info = ServiceInfo(
             type_="_repl._tcp.local.",
             name=device.name + "." + "_repl._tcp.local.",
-            port=Config.get('server_port'), 
+            port=Config.get_attr('server_port', '34567'),
             properties = { "uid": device.uid, "name": device.name },
             addresses=self._addresses)
         self._id2info[id] = info
@@ -47,7 +47,7 @@ class AdvertiseServer:
         try:
             logger.debug(f"no longer advertise {id}")
             info = self._id2info[id]
-            if info: 
+            if info:
                 self._zeroconf.unregister_service(info)
                 del self._id2info[id]
         except AttributeError:
@@ -66,7 +66,7 @@ class DeviceServer():
         self.__sel = selectors.DefaultSelector()
         lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        port = Config.get('server_port')
+        port = Config.get_attr('server_port', '34567')
         lsock.bind(('', port))
         lsock.listen()
         logger.info(f"Listening for connections on {self.__ip}:{port}")
@@ -117,7 +117,7 @@ class DeviceServer():
         logger.debug(f"Request from {addr} to {uid}")
         # check password & device status
         ans = None
-        if uid_pwd.get('password') != Config.get('password'):
+        if uid_pwd.get('password') != Config.get_attr('password', '?'):
             ans = f'wrong password for {uid}'
         elif not device:
             ans = f'no device {uid}'
@@ -139,8 +139,8 @@ class DeviceServer():
                 # debug code for dealing with SSLWantReadError
                 # from Python docs:
                 #    exception ssl.SSLWantReadError
-                #    A subclass of SSLError raised by a non-blocking SSL socket when 
-                #    trying to read or write data, but more data needs to be received 
+                #    A subclass of SSLError raised by a non-blocking SSL socket when
+                #    trying to read or write data, but more data needs to be received
                 #    on the underlying TCP transport before the request can be fulfilled.
                 for _ in range(10):
                     try:
@@ -159,8 +159,8 @@ class DeviceServer():
             if mask & selectors.EVENT_WRITE:
                 # forward data from device, if any
                 msg = device.read_all()
-                if len(msg) > 0: 
-                    sock.sendall(msg)            
+                if len(msg) > 0:
+                    sock.sendall(msg)
         except (SerialException, ConnectionResetError, OSError) as e:
             logger.info(f"Communication with {device.uid} failed, closing connection ({e})")
             self.__sel.unregister(sock)

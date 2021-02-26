@@ -1,5 +1,5 @@
 from .device import Device
-from .config_store import Config
+from .config import Config
 from .eval import RemoteError
 from .repl_protocol import ReplProtocol
 
@@ -46,7 +46,7 @@ class WebreplDevice(Device):
             self.__ws.settimeout(100)
             p = b'Password: '
             pp = self.read(len(p))
-            self.write(Config.get_secret('webrepl_pwd', '???').encode())
+            self.write(Config.get_attr('webrepl_pwd', '?').encode())
             self.write(b'\r\n')
             return ReplProtocol(self)
         except WebSocketException as e:

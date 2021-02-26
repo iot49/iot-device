@@ -1,6 +1,5 @@
 from .eval import RemoteError
 from .eval_rsync import EvalRsync
-from .config_store import Config
 from .pyboard import PyboardError
 from .pydevice import Pydevice
 from websocket import WebSocketException
