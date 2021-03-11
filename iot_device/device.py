@@ -72,11 +72,17 @@ class Device(ABC):
     @property
     def name(self) -> str:
         """Device name"""
-        return Config.get_device(self.uid).name or self.uid
+        try:
+            return Config.get_device(self.uid).name
+        except ValueError:
+            return self.uid
 
     @property
     def packages(self):
-        return Config.get_device(self.uid).get_packages()
+        try:
+            return Config.get_device(self.uid).get_packages()
+        except ValueError:
+            return []
 
 
 ###############################################################################

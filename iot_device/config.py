@@ -59,7 +59,10 @@ class Config:
             with cd(os.path.join(Config.iot49_dir(), 'config')):
                 for file in glob('./**/*.py', recursive=True):
                     with open(file) as f:
-                        exec(f.read(), cfg)
+                        try:
+                            exec(f.read(), cfg)
+                        except SyntaxError as e:
+                            raise SyntaxError(f"{e.text.strip()}: {e.msg}, line {e.lineno} file {file}")
         except (NameError, OSError) as ne:
             logger.error("{} while reading {}".format(ne, file))
             raise
@@ -157,7 +160,7 @@ class Device:
         # search for uid
         for dev in cls.__DEVICES.values():
             if dev.uid == name: return dev
-        return None
+        raise ValueError(f"No configuration for device '{name}'")
 
     def __init__(self, name, uid, **kwargs):
         self._dict = {
