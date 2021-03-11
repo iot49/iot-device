@@ -55,6 +55,7 @@ class Config:
         cfg = {}
         src = inspect.getsource(config)
         exec(src, cfg)
+        file = 'config'
         try:
             with cd(os.path.join(Config.iot49_dir(), 'config')):
                 for file in glob('./**/*.py', recursive=True):
