@@ -30,8 +30,6 @@ class Pydevice(Pyboard):
         # if data_consumer is used then data is not accumulated and the ending must be 1 byte long
         assert data_consumer is None or len(ending) == 1
         data = self.serial.read(min_num_bytes)
-        if data_consumer:
-            data_consumer(data)
         timeout_count = 0
         while True:
             if data.endswith(ending):

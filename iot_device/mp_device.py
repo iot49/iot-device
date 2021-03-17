@@ -1,6 +1,6 @@
 from .device import Device
 from .eval import RemoteError
-from .config_store import Config
+from .config import Config
 from .mp_protocol import MpProtocol
 
 import os, socket, time, logging
