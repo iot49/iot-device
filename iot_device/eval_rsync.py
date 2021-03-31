@@ -118,6 +118,6 @@ class EvalRsync(EvalRlist):
                                 # compiled file is newer
                                 src = mpy_src
                                 mtime = mpy_mtime
-                                size = os.path.getsize(mpy_file)
+                                size = os.path.getsize(mpy_src)
                     result[os.path.normpath(os.path.join(dest, file_path))] = (int(mtime), size, src)
         return result

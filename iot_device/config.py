@@ -89,14 +89,16 @@ class Package:
             return Package(name, name)
         return Package.__PACKAGES.get(name)
 
-    def __init__(self, name, src, requires=[], includes=None, excludes=None):
+    def __init__(self, name, src, dst='', requires=[], includes=None, excludes=None):
         # src: list of dirs or files relative to $IOT49
-        # may also the name of a single dir or file
+        #      may also the name of a single dir or file
+        # dst: path prefix where files will be installed on microcontroller, e.g. lib
         if name in Package.__PACKAGES:
             raise ValueError(f"Redefinition of Package '{name}'")
         self._name = name
         if isinstance(src, str): src = [src]
         self._src = src
+        self._dst = dst
         if isinstance(requires, str): requires = [requires]
         self._requires = requires
         self._includes = includes or ['./**/*.py', './**/*.mpy', './**/']
@@ -108,6 +110,10 @@ class Package:
     @property
     def name(self):
         return self._name
+
+    @property
+    def dest(self):
+        return self._dst
 
     def files(self):
         result = {}  # file -> path
@@ -185,11 +191,17 @@ class Device:
         return res
 
     def get_package_dest(self, pkg_name):
+        # package destination is concatenation of
+        #    1) dest specified in device (default or in package path), e.g. /spi
+        #    2) dst specified in package definition (typically 'lib')
         def root(name): return name if name.startswith('/') else '/' + name
         names = self._dict.get('packages', [])
         for name in names:
-            if isinstance(name, str): continue
-            if name[0] == pkg_name: return root(name[1])
+            dst = Package.get_package(pkg_name).dest
+            if isinstance(name, str) and name == pkg_name:
+                return root(dst)
+            if name[0] == pkg_name:
+                return root(os.path.join(root(name[1]), dst))
         return root(self._dict.get('dest', ''))
 
     def __getattr__(self, name):
