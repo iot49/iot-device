@@ -38,14 +38,14 @@ class Config:
         return c['Package'].get_package(name)
 
     @staticmethod
-    def get_devices():
+    def get_device_configs():
         c = Config.get_config()
-        return c['Device'].get_devices()
+        return c['DeviceConfig'].get_devices()
 
     @staticmethod
-    def get_device(name_or_uid):
+    def get_device_config(name_or_uid):
         c = Config.get_config()
-        return c['Device'].get_device(name_or_uid)
+        return c['DeviceConfig'].get_device(name_or_uid)
 
     @staticmethod
     def get_config():
@@ -98,7 +98,7 @@ class Package:
         self._name = name
         if isinstance(src, str): src = [src]
         self._src = src
-        self._dst = dst
+        self._mcu_dest = dst
         if isinstance(requires, str): requires = [requires]
         self._requires = requires
         self._includes = includes or ['./**/*.py', './**/*.mpy', './**/']
@@ -112,8 +112,10 @@ class Package:
         return self._name
 
     @property
-    def dest(self):
-        return self._dst
+    def mcu_dest(self):
+        # path where files are to be installed on the MCU
+        # e.g. 'lib'
+        return self._mcu_dest
 
     def files(self):
         result = {}  # file -> path
@@ -151,14 +153,14 @@ class Package:
 
 
 
-class Device:
+class DeviceConfig:
 
     # dict name --> device
     __DEVICES = {}
 
     @staticmethod
     def get_devices():
-        return Device.__DEVICES
+        return DeviceConfig.__DEVICES
 
     @classmethod
     def get_device(cls, name):
@@ -175,7 +177,7 @@ class Device:
             'uid': uid,
         }
         self._dict.update(kwargs)
-        Device.__DEVICES[name] = self
+        DeviceConfig.__DEVICES[name] = self
 
     def get_packages(self):
         names = self._dict.get('packages', [])
@@ -190,19 +192,28 @@ class Device:
                 logger.warn(f"No such package: '{name}' (skipped)")
         return res
 
-    def get_package_dest(self, pkg_name):
-        # package destination is concatenation of
-        #    1) dest specified in device (default or in package path), e.g. /spi
-        #    2) dst specified in package definition (typically 'lib')
-        def root(name): return name if name.startswith('/') else '/' + name
-        names = self._dict.get('packages', [])
-        for name in names:
-            dst = Package.get_package(pkg_name).dest
-            if isinstance(name, str) and name == pkg_name:
-                return root(dst)
-            if name[0] == pkg_name:
-                return root(os.path.join(root(name[1]), dst))
-        return root(self._dict.get('dest', ''))
+    def files(self):
+        """Returns a dict with:
+
+        key:    file path
+        value:  tuple of
+                    mcu_path:  path prefix on mcu (relative to '/')
+                    host_path: path prefix on host (relative to $IOT49)
+        """
+        res = {}
+        default_dest = self._dict.get('dest', '')
+        for pkg_name in self._dict.get('packages', []):
+            if isinstance(pkg_name, str):
+                dest = default_dest
+                name = pkg_name
+            else:
+                dest = pkg_name[1]
+                name = pkg_name[0]
+            pkg = Package.get_package(name)
+            dest = os.path.join('/', dest, pkg.mcu_dest)
+            for k,v in pkg.files().items():
+                res[k] = (dest, v)
+        return res
 
     def __getattr__(self, name):
         return self._dict.get(name)
@@ -216,4 +227,4 @@ class Device:
         return s.getvalue()
 
     def __str__(self):
-        return f"{self._dict.get('name')} ({self._dict.get('uid')})"
+        return f"DeviceConfig for {self._dict.get('name')} ({self._dict.get('uid')})"

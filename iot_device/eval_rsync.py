@@ -96,28 +96,28 @@ class EvalRsync(EvalRlist):
     def _host_files(self):
         # returns { dict mcu_filename -> (mtime, size, host_filename) }
         result = {}
-        # add folder so it won't be deleted
-        result['/'] = (0, -1, '')
-        pkgs = self.device.packages
         implementation = self.implementation
         with cd(Config.iot49_dir()):
-            for pkg in pkgs:
-                dest = Config.get_device(self.device.name).get_package_dest(pkg.name)
-                # add folder so it won't be deleted
-                # result[dest] = ('', 0, -1, '')
-                for file_path, package in pkg.files().items():
-                    src = os.path.join(package, file_path)
-                    mtime = os.path.getmtime(src)
-                    size = -1 if os.path.isdir(src) else os.path.getsize(src)
-                    if file_path.endswith('.py'):
-                        # check if we have a compiled version
-                        mpy_src = os.path.join('.compiled', implementation, src.replace('.py', '.mpy'))
-                        if os.path.isfile(mpy_src):
-                            mpy_mtime = os.path.getmtime(mpy_src)
-                            if mpy_mtime >= mtime:
-                                # compiled file is newer
-                                src = mpy_src
-                                mtime = mpy_mtime
-                                size = os.path.getsize(mpy_src)
-                    result[os.path.normpath(os.path.join(dest, file_path))] = (int(mtime), size, src)
+            for file_path, p2 in self.device.files.items():
+                mcu_path, host_path = p2
+                # add folders so they won't be deleted
+                p = mcu_path
+                while len(p) and p != '/':
+                    p = os.path.dirname(p)
+                    result[os.path.normpath(p)] = (0, -1, '.')
+                result[mcu_path] = (0, -1, '.')
+                # get file mtime and size for to determine if it needs updating
+                src = os.path.join(host_path, file_path)
+                mtime = os.path.getmtime(src)
+                size = -1 if os.path.isdir(src) else os.path.getsize(src)
+                if file_path.endswith('.py'):
+                    mpy_src = os.path.join('.compiled', implementation, src.replace('.py', '.mpy'))
+                    if os.path.isfile(mpy_src):
+                        mpy_mtime = os.path.getmtime(mpy_src)
+                        if mpy_mtime >= mtime:
+                            # compiled file is newer
+                            src = mpy_src
+                            mtime = mpy_mtime
+                            size = os.path.getsize(mpy_src)
+                result[os.path.normpath(os.path.join(mcu_path, file_path))] = (int(mtime), size, src)
         return result
