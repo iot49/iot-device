@@ -27,13 +27,20 @@ class DeviceRegistry:
 
     def get_device(self, name: str, schemes=None) -> Device:
         """Device with given name/uid/url & schemes."""
-        if schemes == None or len(schemes) == 0:
-            schemes = ['serial', 'ws', 'mp']
-        self._update()
-        for scheme in schemes:
-            for dev in self._devices.values():
-                if (dev.name == name or dev.uid == name or dev.url == name) and dev.scheme == scheme:
-                    return dev
+        if name:
+            self._update()
+            if '://' in name and not name in self._devices:
+                # auto-register URL
+                try:
+                    self.register(name)
+                except ValueError:
+                    pass
+            if schemes == None or len(schemes) == 0:
+                schemes = ['serial', 'ws', 'mp']
+            for scheme in schemes:
+                for dev in self._devices.values():
+                    if (dev.name == name or dev.uid == name or dev.url == name) and dev.scheme == scheme:
+                        return dev
         return None
 
     def _update(self):
@@ -81,9 +88,9 @@ class DeviceRegistry:
             self._registration_failed[url] = time.monotonic()
             msg = str(e)
             if url.startswith('ws'): msg += " (wrong password?)"
-            print(f"Registration failed for {url}: {msg}")
-            logger.error(f"Registration failed for {url}: {msg}")
-            return
+            msg = f"Registration failed for {url}: {msg}"
+            logger.error(msg)
+            raise ValueError(msg)
         device.max_age = max_age
         device.last_seen = time.monotonic()
         self._devices[url] = device
@@ -115,7 +122,7 @@ def find_device_class(url):
     classes['telnet'] = TelnetDevice
     try:
         scheme, _ = url.split('://')
-    except ValueError as e:
+    except ValueError:
         raise ValueError(f"Invalid url: {url}")
     c = classes.get(scheme)
     if c: return c
