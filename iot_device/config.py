@@ -63,7 +63,8 @@ class Config:
                         try:
                             exec(f.read(), cfg)
                         except SyntaxError as e:
-                            raise SyntaxError(f"{e.text.strip()}: {e.msg}, line {e.lineno} file {file}")
+                            msg = f"Syntax error in {os.path.normpath(os.path.join('config', file))}, line {e.lineno}: {e.msg}"
+                            raise SyntaxError(msg)
         except (NameError, OSError) as ne:
             logger.error("{} while reading {}".format(ne, file))
             raise
