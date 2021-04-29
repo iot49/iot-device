@@ -65,6 +65,8 @@ class Config:
                         except SyntaxError as e:
                             msg = f"Syntax error in {os.path.normpath(os.path.join('config', file))}, line {e.lineno}: {e.msg}"
                             raise SyntaxError(msg)
+        except FileNotFoundError:
+            pass
         except (NameError, OSError) as ne:
             logger.error("{} while reading {}".format(ne, file))
             raise
@@ -151,7 +153,6 @@ class Package:
 
     def __str__(self):
         return self._name
-
 
 
 class DeviceConfig:
