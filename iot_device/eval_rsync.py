@@ -1,7 +1,7 @@
 from .eval import RemoteError
 from .eval_rlist import EvalRlist
 from .utilities import cd
-from .config import Config
+from .env import Env
 
 from termcolor import colored
 from glob import glob
@@ -12,14 +12,7 @@ import time, os, logging
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
-"""File naming conventions:
-
-Config.Package.files() returns:
-    $IOT49 / path=package / name=file_path
-
-Location of files on HOST & MCU:
-    HOST:       $IOT49 / package / file_path
-    MCU:        dest / file_path = full_path
+"""File dicts:
 
 mcu_files:
     dict[full_path] = (mtime, size)
@@ -45,9 +38,10 @@ class EvalRsync(EvalRlist):
         mcu_files = self.rlist('/', data_consumer)
         mcu_files.pop("/boot_out.txt", None)
         # host files
-        host_files = self._host_files()
+        host_files = self.device.config.resource_files
+        # host_files = self._host_files()
         del_, add_, upd_ = self._diff(mcu_files, host_files)
-        with cd(Config.iot49_dir()):
+        with cd(Env.iot49_dir()):
             same = True
             for dst_file in del_:
                 # delete first (protect against a bug that deletes what was just copied)
@@ -92,32 +86,3 @@ class EvalRsync(EvalRlist):
             OrderedDict(sorted({ k: host_files[k][-1] for k in to_add }.items())),
             OrderedDict(sorted({ k: host_files[k][-1] for k in to_update }.items()))
         )
-
-    def _host_files(self):
-        # returns { dict mcu_filename -> (mtime, size, host_filename) }
-        result = {}
-        implementation = self.implementation
-        with cd(Config.iot49_dir()):
-            for file_path, p2 in self.device.files.items():
-                mcu_path, host_path = p2
-                # add folders so they won't be deleted
-                p = mcu_path
-                while len(p) and p != '/':
-                    p = os.path.dirname(p)
-                    result[os.path.normpath(p)] = (0, -1, '.')
-                result[mcu_path] = (0, -1, '.')
-                # get file mtime and size for to determine if it needs updating
-                src = os.path.join(host_path, file_path)
-                mtime = os.path.getmtime(src)
-                size = -1 if os.path.isdir(src) else os.path.getsize(src)
-                if file_path.endswith('.py'):
-                    mpy_src = os.path.join('.compiled', implementation, src.replace('.py', '.mpy'))
-                    if os.path.isfile(mpy_src):
-                        mpy_mtime = os.path.getmtime(mpy_src)
-                        if mpy_mtime >= mtime:
-                            # compiled file is newer
-                            src = mpy_src
-                            mtime = mpy_mtime
-                            size = os.path.getsize(mpy_src)
-                result[os.path.normpath(os.path.join(mcu_path, file_path))] = (int(mtime), size, src)
-        return result

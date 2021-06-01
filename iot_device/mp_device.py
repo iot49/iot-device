@@ -1,6 +1,6 @@
 from .device import Device
 from .eval import RemoteError
-from .config import Config
+from .secrets import Secrets
 from .mp_protocol import MpProtocol
 
 import os, socket, time, logging
@@ -28,7 +28,7 @@ class MpDevice(Device):
         logger.debug(f"version {version}")
         if version == '': raise RemoteError(f"Device is offline")
         if version != VERSION: raise RemoteError(f"Wrong mp version: client={repr(VERSION)}, server={repr(version)}")
-        s.sendall(Config.get_attr("mp_pwd", "?").encode())
+        s.sendall(Secrets.get_attr("mp_pwd", "?").encode())
         s.sendall(b'\n')
         ok = self.readline()
         logger.debug(f"ok = {ok}")

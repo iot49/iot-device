@@ -1,5 +1,5 @@
 from .eval import Eval, RemoteError
-from .config import Config
+from .device_config import DeviceConfig
 
 from abc import ABC, abstractmethod
 import os, threading, time, logging
@@ -73,24 +73,13 @@ class Device(ABC):
     def name(self) -> str:
         """Device name"""
         try:
-            return Config.get_device_config(self.uid).name
+            return DeviceConfig.get_device_config(self.uid).name
         except ValueError:
             return self.uid
 
     @property
-    def packages(self):
-        try:
-            return Config.get_device_config(self.uid).get_packages()
-        except ValueError:
-            return []
-
-    @property
-    def files(self):
-        try:
-            return Config.get_device_config(self.uid).files()
-        except ValueError:
-            return {}
-
+    def config(self) -> DeviceConfig:
+        return DeviceConfig.get_device_config(self.uid)
 
 
 ###############################################################################

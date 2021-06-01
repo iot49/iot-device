@@ -4,8 +4,8 @@ import sys, os
 
 @contextmanager
 def cd(path=None):
-    from .config import Config
-    path = path or Config.iot49_dir()
+    from .env import Env
+    path = path or Env.iot49_dir()
     cwd = os.getcwd()
     os.chdir(os.path.expandvars(os.path.expanduser(path)))
     try:

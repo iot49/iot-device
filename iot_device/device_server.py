@@ -1,6 +1,6 @@
 from .device_registry import DeviceRegistry
 from .certificate import create_key_cert_pair
-from .config import Config
+from .secrets import Secrets
 
 from zeroconf import ServiceInfo, Zeroconf
 from serial import SerialException
@@ -36,7 +36,7 @@ class AdvertiseServer:
         info = ServiceInfo(
             type_="_repl._tcp.local.",
             name=device.name + "." + "_repl._tcp.local.",
-            port=Config.get_attr('server_port', '34567'),
+            port=Secrets.get_attr('server_port', '34567'),
             properties = { "uid": device.uid, "name": device.name },
             addresses=self._addresses)
         self._id2info[id] = info
@@ -66,7 +66,7 @@ class DeviceServer():
         self.__sel = selectors.DefaultSelector()
         lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        port = Config.get_attr('server_port', '34567')
+        port = Secrets.get_attr('server_port', '34567')
         lsock.bind(('', port))
         lsock.listen()
         logger.info(f"Listening for connections on {self.__ip}:{port}")
@@ -117,7 +117,7 @@ class DeviceServer():
         logger.debug(f"Request from {addr} to {uid}")
         # check password & device status
         ans = None
-        if uid_pwd.get('password') != Config.get_attr('password', '?'):
+        if uid_pwd.get('password') != Secrets.get_attr('password', '?'):
             ans = f'wrong password for {uid}'
         elif not device:
             ans = f'no device {uid}'
