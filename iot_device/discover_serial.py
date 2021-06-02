@@ -3,7 +3,7 @@ from .eval import RemoteError
 
 from serial import SerialException
 import serial.tools.list_ports
-import os, time, logging, threading
+import os, time, logging
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 

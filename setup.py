@@ -9,6 +9,7 @@ install_requires = [
     "pyopenssl",
     "zeroconf",
     "websocket-client",
+    "PyYAML",
 ]
 
 setuptools.setup(
