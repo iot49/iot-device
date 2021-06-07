@@ -48,3 +48,11 @@ class Env:
         print("IOT_SECRETS:", Env.iot_secrets())
         print("IOT_DEVICES:", Env.iot_device_dirs())
         print("IOT_LIBS:   ", Env.iot_lib_dirs())
+
+# ensure these are defined ...
+
+if not os.getenv('IOT'):
+    os.environ['IOT'] = '~'
+
+if not os.getenv('IOT49'):
+    os.environ['IOT49'] = Env.abs_path('$IOT/iot49')

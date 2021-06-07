@@ -44,10 +44,11 @@ robot-stm:
 
 class DeviceConfig:
     
-    def __init__(self, name, uid, spec):
+    def __init__(self, name, uid, spec, file):
         self._name = name
         self._uid = uid
         self._spec = spec
+        self._file = file
     
     @property
     def name(self):
@@ -56,6 +57,10 @@ class DeviceConfig:
     @property
     def uid(self):
         return self._uid
+
+    @property
+    def file(self):
+        return self._file
 
     @property
     def resource_files(self):
@@ -89,7 +94,7 @@ class DeviceConfig:
     def __str__(self):
         from io import StringIO
         s = StringIO()
-        s.write(f"DeviceConfig for {self.name} [{self.uid}]:\n")
+        s.write(f"Configuration (in {self.file}):\n")
         for r in self.resources:
             s.write(f"  {r}\n")
         # s.write(f"    spec:                 {self._spec}\n")
@@ -127,7 +132,7 @@ class DeviceConfig:
                                 if not uid:
                                     raise ValueError(f"File {file} device '{name}': field 'uid' is mandatory")
                                 uids.add(uid)
-                                result[name] = DeviceConfig(name, uid, spec)
+                                result[name] = DeviceConfig(name, uid, spec, file)
         except FileNotFoundError:
             pass
         return result
@@ -187,7 +192,7 @@ class _Resource:
         if isinstance(includes, str): includes = [ includes ]
         if isinstance(excludes, str): excludes = [ excludes ]
         path = os.path.join(self.lib, self.name)
-        # if os.path.isfile(Env.abs_path(path)): return [ self.name ]
+        if os.path.isfile(Env.abs_path(path)): return [ self.name ]
         try:
             with cd(path):
                 for inc in includes:
@@ -196,7 +201,7 @@ class _Resource:
                         for ex in excludes:
                             if fnmatch(file, ex): continue
                         result.append(os.path.normpath(os.path.join(self.name, file)))
-        except FileNotFoundError:
+        except OSError:
             pass
         return result
 
@@ -231,4 +236,5 @@ class _Resource:
         return libs if isinstance(libs, list) else [ libs ]
 
     def __str__(self):
+        return f"{self.lib}/{self.name} -> {self.install_dir}"
         return f"Res {self.name:22} install-dir={self.install_dir:22} lib={self.lib}"

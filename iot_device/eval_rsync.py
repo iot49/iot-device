@@ -39,7 +39,6 @@ class EvalRsync(EvalRlist):
         mcu_files.pop("/boot_out.txt", None)
         # host files
         host_files = self.device.config.resource_files
-        # host_files = self._host_files()
         del_, add_, upd_ = self._diff(mcu_files, host_files)
         with cd(Env.iot49_dir()):
             same = True
