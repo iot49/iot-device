@@ -106,7 +106,7 @@ class DeviceConfig:
         # search for uid
         for dev in devs.values():
             if dev.uid == name_or_uid: return dev
-        raise ValueError(f"No such device: '{name_or_uid}'")
+        raise ValueError(f"No configuration found for: '{name_or_uid}'")
 
     @staticmethod
     def get_device_configs():
@@ -114,19 +114,22 @@ class DeviceConfig:
         result = {}
         names = set()
         uids  = set()
-        for dir in Env.iot_device_dirs():
-            with cd(dir):
-                for file in glob("*.yaml") + glob("*.yml"):
-                    with open(file) as f:
-                        for name, spec in yaml.safe_load(f.read()).items():
-                            if name in names:
-                                raise ValueError(f"File {file}: device '{name}' redefined")
-                            names.add(name)
-                            uid = spec.get('uid')
-                            if not uid:
-                                raise ValueError(f"File {file} device '{name}': field 'uid' is mandatory")
-                            uids.add(uid)
-                            result[name] = DeviceConfig(name, uid, spec)
+        try:
+            for dir in Env.iot_device_dirs():
+                with cd(dir):
+                    for file in glob("*.yaml") + glob("*.yml"):
+                        with open(file) as f:
+                            for name, spec in yaml.safe_load(f.read()).items():
+                                if name in names:
+                                    raise ValueError(f"File {file}: device '{name}' redefined")
+                                names.add(name)
+                                uid = spec.get('uid')
+                                if not uid:
+                                    raise ValueError(f"File {file} device '{name}': field 'uid' is mandatory")
+                                uids.add(uid)
+                                result[name] = DeviceConfig(name, uid, spec)
+        except FileNotFoundError:
+            pass
         return result
 
 
@@ -184,14 +187,17 @@ class _Resource:
         if isinstance(includes, str): includes = [ includes ]
         if isinstance(excludes, str): excludes = [ excludes ]
         path = os.path.join(self.lib, self.name)
-        if os.path.isfile(Env.abs_path(path)): return [ self.name ]
-        with cd(path):
-            for inc in includes:
-                for file in glob(inc, recursive=True):
-                    if not os.path.isfile(file): continue
-                    for ex in excludes:
-                        if fnmatch(file, ex): continue
-                    result.append(os.path.normpath(os.path.join(self.name, file)))
+        # if os.path.isfile(Env.abs_path(path)): return [ self.name ]
+        try:
+            with cd(path):
+                for inc in includes:
+                    for file in glob(inc, recursive=True):
+                        if not os.path.isfile(file): continue
+                        for ex in excludes:
+                            if fnmatch(file, ex): continue
+                        result.append(os.path.normpath(os.path.join(self.name, file)))
+        except FileNotFoundError:
+            pass
         return result
 
     @property
