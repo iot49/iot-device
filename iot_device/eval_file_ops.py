@@ -100,7 +100,10 @@ def makedirs(path):
 _rm_rf_func = """
 import os
 def rm_rf(path, r, f):
-    mode = os.stat(path)[0]
+    try:
+        mode = os.stat(path)[0]
+    except OSError:
+        return
     if mode & 0x4000 != 0:
         if r:
             for file in os.listdir(path):
