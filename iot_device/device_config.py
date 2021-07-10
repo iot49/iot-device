@@ -73,7 +73,7 @@ class DeviceConfig:
             for f in r.files:
                 mcu_file = sep.join(f.strip(sep).split(sep)[1:]) if r.unpack else f
                 mcu_path = os.path.join(r.install_dir, mcu_file)
-                host_path = Env.abs_path(os.path.join(r.lib, f))
+                host_path = Env.expand_path(os.path.join(r.lib, f))
                 # add folders so rsync won't delete them
                 p = mcu_path
                 while p != '/':
@@ -119,8 +119,8 @@ class DeviceConfig:
         result = {}
         names = set()
         uids  = set()
-        try:
-            for dir in Env.iot_device_dirs():
+        for dir in Env.iot_device_dirs():
+            try:
                 with cd(dir):
                     for file in glob("*.yaml") + glob("*.yml"):
                         with open(file) as f:
@@ -133,8 +133,8 @@ class DeviceConfig:
                                     raise ValueError(f"File {file} device '{name}': field 'uid' is mandatory")
                                 uids.add(uid)
                                 result[name] = DeviceConfig(name, uid, spec, file)
-        except FileNotFoundError:
-            pass
+            except FileNotFoundError as e:
+                pass
         return result
 
 
@@ -145,7 +145,7 @@ class _Library:
     
     def __init__(self, path):
         self._path = path
-        p = Env.abs_path(path)
+        p = Env.expand_path(path)
         if not os.path.isdir(p):
             raise ValueError(f"Library: '{path}' @ '{p}' is not a directory")
         self._resources = os.listdir(p)
@@ -192,7 +192,7 @@ class _Resource:
         if isinstance(includes, str): includes = [ includes ]
         if isinstance(excludes, str): excludes = [ excludes ]
         path = os.path.join(self.lib, self.name)
-        if os.path.isfile(Env.abs_path(path)): return [ self.name ]
+        if os.path.isfile(Env.expand_path(path)): return [ self.name ]
         try:
             with cd(path):
                 for inc in includes:
@@ -205,10 +205,11 @@ class _Resource:
             pass
         return result
 
-    @property
-    def unpack(self):
-        """"""
-        return self._param.get('unpack', False) 
+    def unpack(self, path):
+        """Upload directory (unpack False) or contents (unpack False)"""
+        if hasattr(self._param, 'unpack'):
+            return self._param['unpack'] 
+        return os.path.isdir(path) and not os.path.isfile(os.path.join(path, '__init__.py'))
 
     @property
     def install_dir(self):

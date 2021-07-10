@@ -40,27 +40,26 @@ class EvalRsync(EvalRlist):
         # host files
         host_files = self.device.config.resource_files
         del_, add_, upd_ = self._diff(mcu_files, host_files)
-        with cd(Env.iot49_dir()):
-            same = True
-            for dst_file in del_:
-                # delete first (protect against a bug that deletes what was just copied)
-                if not upload_only:
-                    same = False
-                    data_consumer(colored(f"DELETE  {dst_file}\n", 'red'))
-                    if not dry_run:
-                        self.rm_rf(dst_file)
-            for dst_file, src_file in add_.items():
-                # no feedback about directory creation
-                if os.path.isfile(src_file):
-                    same = False
-                    data_consumer(colored(f"ADD     {dst_file}\n", 'green'))
-                if not dry_run:
-                    self.fput(src_file, dst_file)
-            for dst_file, src_file in upd_.items():
+        same = True
+        for dst_file in del_:
+            # delete first (protect against a bug that deletes what was just copied)
+            if not upload_only:
                 same = False
-                data_consumer(colored(f"UPDATE  {dst_file}\n", 'blue'))
+                data_consumer(colored(f"DELETE  {dst_file}\n", 'red'))
                 if not dry_run:
-                    self.fput(src_file, dst_file)
+                    self.rm_rf(dst_file)
+        for dst_file, src_file in add_.items():
+            # no feedback about directory creation
+            if os.path.isfile(src_file):
+                same = False
+                data_consumer(colored(f"ADD     {dst_file}\n", 'green'))
+            if not dry_run:
+                self.fput(src_file, dst_file)
+        for dst_file, src_file in upd_.items():
+            same = False
+            data_consumer(colored(f"UPDATE  {dst_file}\n", 'blue'))
+            if not dry_run:
+                self.fput(src_file, dst_file)
         if same:
             data_consumer(colored("Directories match\n", 'green'))
 

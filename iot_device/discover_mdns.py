@@ -42,8 +42,8 @@ class DiscoverMdns(Discover):
     def add_service(self, zeroconf, service_type, name):
         self.urls.add(self._url(zeroconf, service_type, name))
 
-    def remove_service(self, zeroconf, service_type, name):
-        pass
-
     def update_service(self, zeroconf, service_type, name):
+        self.add_service(zeroconf, service_type, name)
+
+    def remove_service(self, zeroconf, service_type, name):
         pass
