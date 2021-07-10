@@ -205,10 +205,12 @@ class _Resource:
             pass
         return result
 
-    def unpack(self, path):
-        """Upload directory (unpack False) or contents (unpack False)"""
+    @property
+    def unpack(self):
+        """Upload directory (unpack False) or contents (unpack True)"""
         if hasattr(self._param, 'unpack'):
             return self._param['unpack'] 
+        path = os.path.join(self.lib, self.name)
         return os.path.isdir(path) and not os.path.isfile(os.path.join(path, '__init__.py'))
 
     @property
@@ -237,5 +239,5 @@ class _Resource:
         return libs if isinstance(libs, list) else [ libs ]
 
     def __str__(self):
-        return f"{self.lib}/{self.name} -> {self.install_dir}"
+        # return f"{self.lib}/{self.name} -> {self.install_dir}"
         return f"Res {self.name:22} install-dir={self.install_dir:22} lib={self.lib}"
