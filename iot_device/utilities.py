@@ -5,7 +5,7 @@ import sys, os
 @contextmanager
 def cd(path=None):
     from .env import Env
-    path = path or Env.iot49_dir()
+    path = path or Env.iot_projects()
     cwd = os.getcwd()
     os.chdir(os.path.expandvars(os.path.expanduser(path)))
     try:
