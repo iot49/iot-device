@@ -109,7 +109,10 @@ def rm_rf(path, r, f):
             for file in os.listdir(path):
                 rm_rf(path + '/' + file, r, f)
         if f:
-            os.rmdir(path)
+            try:
+                os.rmdir(path)
+            except OSError:
+                pass
     else:
         os.remove(path)
 """
