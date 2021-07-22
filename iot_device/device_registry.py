@@ -1,6 +1,7 @@
 from .eval import RemoteError
 from .device import Device
 from .discover_serial import DiscoverSerial
+from .discover_broadcasts import DiscoverBroadcasts
 from .discover_mdns import DiscoverMdns
 from serial import SerialException
 import os, logging, threading, time
@@ -13,6 +14,7 @@ class DeviceRegistry:
 
     def __init__(self):
         self._discover_serial = DiscoverSerial()
+        self._discover_broadcasts = DiscoverBroadcasts(10)
         self._discover_mdns = DiscoverMdns()
         # map url -> device
         self._devices = {}
@@ -45,7 +47,7 @@ class DeviceRegistry:
 
     def _update(self):
         # update database ...
-        urls = self._discover_serial.scan() | self._discover_mdns.scan()
+        urls = self._discover_serial.scan() | self._discover_broadcasts.scan() | self._discover_mdns.scan()
         # 1) purge database of devices that are no longer available
         now = time.monotonic()
         for k in list(self._devices.keys()):
@@ -122,7 +124,7 @@ def find_device_class(url):
     classes['telnet'] = TelnetDevice
     try:
         scheme, _ = url.split('://')
-    except ValueError:
+    except (ValueError, TypeError):
         raise ValueError(f"Invalid url: {url}")
     c = classes.get(scheme)
     if c: return c

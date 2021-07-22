@@ -15,9 +15,8 @@ robot-stm:
     uid: 2d:00:49:00:09:50:52:42:4e:30:39:20
     install-dir: /spi/lib
     include-patterns: 
-        - "./**/*.py"
-        - "./**/*.mpy"
-        - "./**/"
+        - "*.py"
+        - "*.mpy"
     exclude-patterns:
         - "boot_out.txt"
         - "/data"
@@ -31,7 +30,7 @@ robot-stm:
             unpack: true
             install-dir: /flash
             include-patterns:
-                - "./**/*.py"
+                - "*.py"
         - boot: 
             lib: ~/my_own_library
             unpack: false

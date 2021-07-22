@@ -10,7 +10,6 @@ class DiscoverMdns(Discover):
     """zeroconf device discovery"""
 
     def __init__(self, scan_rate:float=5):
-        """Start a daemon thread that continually scans ports every scan_rate seconds."""
         super().__init__()
 
     def scan(self):
