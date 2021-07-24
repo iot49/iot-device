@@ -48,12 +48,14 @@ class WebreplDevice(Device):
             pp = self.read(len(p))
             self.write(Secrets.get_attr('webrepl_pwd', '?').encode())
             self.write(b'\r\n')
-            return ReplProtocol(self)
         except WebSocketException as e:
             raise RemoteError(f"Websocket exception: {e}")
+        self._repl_protocol = ReplProtocol(self)
+        return self._repl_protocol
 
     def __exit__(self, type, value, traceback):
         try:
+            self._repl_protocol.close()
             # takes ages ...
             self.__ws.close()
         except Exception as e:

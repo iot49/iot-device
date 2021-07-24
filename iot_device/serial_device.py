@@ -28,13 +28,15 @@ class SerialDevice(Device):
                 write_timeout=2,
                 exclusive= True         # exclusive access mode (POSIX only)
             )
-            return ReplProtocol(self)
         except (BlockingIOError, SerialException):
             raise
             # raise RemoteError(f"Device {self.url} not available (in use?)")
         except Exception as e:
             raise RemoteError(f"Device {self.url} encountered problem: {e}")
+        self._repl_protocol = ReplProtocol(self)
+        return self._repl_protocol
 
     def __exit__(self, type, value, traceback):
+        self._repl_protocol.close()
         self.__serial.close()
         self.__serial = None

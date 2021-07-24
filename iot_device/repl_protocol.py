@@ -13,7 +13,7 @@ class ReplProtocol(EvalRsync):
     def __init__(self, device):
         super().__init__(device)
         self.pyboard = Pydevice(device)
-        self.pyboard.enter_raw_repl()
+        self.pyboard.enter_raw_repl(soft_reset=False)
 
     def close(self):
         self.pyboard.exit_raw_repl()
@@ -43,7 +43,8 @@ class ReplProtocol(EvalRsync):
     def abort(self) -> None:
         try:
             # enter_raw_repl aborts running program (if any)
-            self.pyboard.enter_raw_repl()
+            self.pyboard.enter_raw_repl(soft_reset=False)
+            self.pyboard.exit_raw_repl()
         except PyboardError as e:
             logger.exception("abort: {e}")
             raise RemoteError(*e.args)

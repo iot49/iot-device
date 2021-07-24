@@ -50,7 +50,7 @@ class Pydevice(Pyboard):
                 time.sleep(0.01)
         return data
 
-    def enter_raw_repl(self):
+    def XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX_enter_raw_repl(self):
         self.serial.write(b"\r\x03\x03")  # ctrl-C twice: interrupt any running program
 
         # flush input (without relying on serial.flushInput())
@@ -68,15 +68,21 @@ class Pydevice(Pyboard):
     def exec(self, command, data_consumer=None):
         self.exec_raw_no_follow(command)
         ret, ret_err = self.follow(timeout=None, data_consumer=data_consumer)
+        print(f"***** EXEC, ret={ret}   ret_err={ret_err}")
         if ret_err:
-            raise PyboardError("exception", ret, ret_err)
+            print(f"raise PyboardError {ret_err.decode()}")
+            raise PyboardError(ret_err.decode())
         return ret
 
     def softreset(self):
-        device = self.serial
-        device.write(MCU_ABORT)
-        device.write(MCU_RESET)
-        device.write(CR)
-        data = self.read_until(1, RAW_REPL_MSG)
-        if not data.endswith(RAW_REPL_MSG):
-            raise PyboardError(f"could not reset board:\n  expected '{RAW_REPL_MSG}'\n  got '{data}'")
+        self.enter_raw_repl(soft_reset=True)
+        self.exit_raw_repl()
+
+        if False:
+            device = self.serial
+            device.write(MCU_ABORT)
+            device.write(MCU_RESET)
+            device.write(CR)
+            data = self.read_until(1, RAW_REPL_MSG)
+            if not data.endswith(RAW_REPL_MSG):
+                raise PyboardError(f"could not reset board:\n  expected '{RAW_REPL_MSG}'\n  got '{data}'")

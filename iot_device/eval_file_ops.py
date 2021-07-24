@@ -35,7 +35,7 @@ class EvalFileOps(EvalDefaults):
         """Synchronize mcu time to host if they differ by more than tolerance seconds"""
         self._remote_exec(f"set_time({tuple(time.localtime())}, {tolerance})", _time_funcs)
 
-    def fget(self, mcu_file:str, host_file:str, chunk_size:int=256):
+    def fget(self, mcu_file:str, host_file:str, chunk_size:int=256, data_consumer=None):
         """Copy from microcontroller to host"""
         self.exec(f"f=open('{mcu_file}', 'rb')\nr=f.read")
         with open(host_file, 'wb') as f:
@@ -53,16 +53,20 @@ class EvalFileOps(EvalDefaults):
                 f.write(data)
         self.exec("f.close()")
 
-    def fput(self, host_file:str, mcu_file:str, chunk_size:int=256):
+    def fput(self, host_file:str, mcu_file:str, chunk_size:int=256, data_consumer=None):
         """Copy from host to microcontroller"""
         self.makedirs(os.path.dirname(mcu_file))
         if not os.path.isfile(host_file): return
         self.exec(f"f=open('{mcu_file}','wb')\nw=f.write")
         with open(host_file, 'rb') as f:
+            n = 1
             while True:
                 data = f.read(chunk_size)
                 if not data: break
+                if data_consumer and n > 10:
+                    data_consumer('.')
                 self.exec(f"w({repr(data)})")
+                n += 1
         self.exec("f.close()")
 
     def _remote_exec(self, code:str, func:str, data_consumer=None) -> bytes:

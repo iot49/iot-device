@@ -63,11 +63,13 @@ class TelnetDevice(Device):
         addr, port = self.address.split(':')
         self.__telnet = Telnet(addr, port, timeout=15)
         print(f"TelnetDevice({addr}, {port}) - enter")
-        return ReplProtocol(self)
+        self._repl_protocol = ReplProtocol(self)
+        return self._repl_protocol
 
     def __exit__(self, type, value, traceback):
         try:
             print("TelnetDevice.close")
+            self._repl_protocol.close()
             self.__telnet.close()
             print("closed")
         except Exception as e:
