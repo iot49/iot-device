@@ -61,5 +61,10 @@ class Pydevice(Pyboard):
         return ret
 
     def softreset(self):
-        self.enter_raw_repl(soft_reset=True)
-        self.exit_raw_repl()
+        device = self.serial
+        device.write(MCU_ABORT)
+        device.write(MCU_RESET)
+        device.write(CR)
+        data = self.read_until(1, RAW_REPL_MSG)
+        if not data.endswith(RAW_REPL_MSG):
+            raise PyboardError(f"could not reset board:\n  expected '{RAW_REPL_MSG}'\n  got '{data}'")
