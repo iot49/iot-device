@@ -26,7 +26,7 @@ class Pydevice(Pyboard):
 
     def read_until(self, min_num_bytes, ending, timeout=10, data_consumer=None):
         # patch: don't call data_consumer on single chars (if more data is available)
-        #        kernal print is very slow on Pi
+        #        kernel print is very slow on Pi
         # if data_consumer is used then data is not accumulated and the ending must be 1 byte long
         assert data_consumer is None or len(ending) == 1
         data = self.serial.read(min_num_bytes)
@@ -50,39 +50,16 @@ class Pydevice(Pyboard):
                 time.sleep(0.01)
         return data
 
-    def XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX_enter_raw_repl(self):
-        self.serial.write(b"\r\x03\x03")  # ctrl-C twice: interrupt any running program
-
-        # flush input (without relying on serial.flushInput())
-        n = self.serial.inWaiting()
-        while n > 0:
-            self.serial.read(n)
-            n = self.serial.inWaiting()
-
-        self.serial.write(b"\r\x01")  # ctrl-A: enter raw REPL
-        data = self.read_until(1, RAW_REPL_MSG)
-        if not data.endswith(RAW_REPL_MSG):
-            print(data)
-            raise PyboardError(f"could not enter raw repl:\n  expected '{RAW_REPL_MSG}'\n  got '{data}'")
+    def enter_raw_repl(self, soft_reset):
+        # patch: soft_reset is mandatory
+        super().enter_raw_repl(soft_reset)
 
     def exec(self, command, data_consumer=None):
-        self.exec_raw_no_follow(command)
-        ret, ret_err = self.follow(timeout=None, data_consumer=data_consumer)
-        print(f"***** EXEC, ret={ret}   ret_err={ret_err}")
+        ret, ret_err = self.exec_raw(command, data_consumer=data_consumer)
         if ret_err:
-            print(f"raise PyboardError {ret_err.decode()}")
             raise PyboardError(ret_err.decode())
         return ret
 
     def softreset(self):
         self.enter_raw_repl(soft_reset=True)
         self.exit_raw_repl()
-
-        if False:
-            device = self.serial
-            device.write(MCU_ABORT)
-            device.write(MCU_RESET)
-            device.write(CR)
-            data = self.read_until(1, RAW_REPL_MSG)
-            if not data.endswith(RAW_REPL_MSG):
-                raise PyboardError(f"could not reset board:\n  expected '{RAW_REPL_MSG}'\n  got '{data}'")

@@ -16,7 +16,9 @@ class ReplProtocol(EvalRsync):
         self.pyboard.enter_raw_repl(soft_reset=False)
 
     def close(self):
-        self.pyboard.exit_raw_repl()
+        # wipes variables ???
+        # self.pyboard.exit_raw_repl()
+        pass
 
     def exec(self, code: str, data_consumer=None) -> bytes:
         try:
