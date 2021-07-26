@@ -14,7 +14,7 @@ class EvalRlist(EvalFileOps):
         """Return and optionally display files stored on remote"""
         out = RlistOutput(data_consumer, show)
         try:
-            self._remote_exec(f"rlist({repr(path)})", _rlist_func, out.data_consumer)
+            self._remote_exec(f"rlist({repr(path)})", _rlist_func, data_consumer=out.data_consumer)
         except RemoteError as e:
             raise
         return out.files

@@ -12,7 +12,7 @@ class MpProtocol(EvalRsync):
         super().__init__(device)
 
     # implement abstract exec
-    def exec(self, code: str, data_consumer=None) -> bytes:
+    def exec(self, code: str, *, data_consumer=None, timeout=10) -> bytes:
         if len(code) == 0: return
         if isinstance(code, str): code = code.encode()
         self.sendall(b'evex\n')

@@ -54,8 +54,8 @@ class Pydevice(Pyboard):
         # patch: soft_reset is mandatory
         super().enter_raw_repl(soft_reset)
 
-    def exec(self, command, data_consumer=None):
-        ret, ret_err = self.exec_raw(command, data_consumer=data_consumer)
+    def exec(self, command, *, data_consumer=None, timeout=10):
+        ret, ret_err = self.exec_raw(command, timeout=timeout, data_consumer=data_consumer)
         if ret_err:
             raise PyboardError(ret_err.decode())
         return ret

@@ -22,7 +22,7 @@ class Device(ABC):
         # connect to device and retrieve its uid; raise RemoteError if unsuccessful
         self._uid = url
         with self as repl:
-            self._uid = repl.exec(_uid).decode()
+            self._uid = repl.exec(_uid, timeout=1).decode()
 
     @abstractmethod
     def read(self, size=1) -> bytes:

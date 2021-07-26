@@ -39,6 +39,7 @@ class EvalFileOps(EvalDefaults):
         """Copy from microcontroller to host"""
         self.exec(f"f=open('{mcu_file}', 'rb')\nr=f.read")
         with open(host_file, 'wb') as f:
+            n = 1
             while True:
                 data = bytearray()
                 data.extend(self.exec(f"print(r({chunk_size}))"))
@@ -51,6 +52,9 @@ class EvalFileOps(EvalDefaults):
                     raise RemoteError(f"fget: Could not interpret received data: {str(e)}")
                 if not data: break
                 f.write(data)
+                if data_consumer and n > 10:
+                    data_consumer('.')
+                n += 1
         self.exec("f.close()")
 
     def fput(self, host_file:str, mcu_file:str, chunk_size:int=256, data_consumer=None):
@@ -65,22 +69,22 @@ class EvalFileOps(EvalDefaults):
                 if not data: break
                 if data_consumer and n > 10:
                     data_consumer('.')
-                self.exec(f"w({repr(data)})")
                 n += 1
+                self.exec(f"w({repr(data)})")
         self.exec("f.close()")
 
-    def _remote_exec(self, code:str, func:str, data_consumer=None) -> bytes:
+    def _remote_exec(self, code:str, func:str, data_consumer=None, timeout=3) -> bytes:
         """Execute code on remote; upload code if required"""
         try:
             logger.debug(f"_remote_exec({code})")
-            return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer)
+            return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer=data_consumer, timeout=timeout)
         except (RemoteError, OSError):
             # upload __iot49__ and try again
             logger.debug(f"_remote_exec: upload {func}")
             self.exec("if not '__iot49__' in globals(): __iot49__ = {}")
             self.exec(f"exec({repr(func)}, __iot49__)")
             logger.debug("_remote_exec: 2nd try")
-            return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer)
+            return self.exec(f"exec({repr(code)}, __iot49__)", data_consumer=data_consumer, timeout=timeout)
 
 
 ###############################################################################

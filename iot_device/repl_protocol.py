@@ -20,9 +20,9 @@ class ReplProtocol(EvalRsync):
         # self.pyboard.exit_raw_repl()
         pass
 
-    def exec(self, code: str, data_consumer=None) -> bytes:
+    def exec(self, code: str, *, data_consumer=None, timeout=10) -> bytes:
         try:
-            res = self.pyboard.exec(code, data_consumer)
+            res = self.pyboard.exec(code, data_consumer=data_consumer, timeout=timeout)
             # Don't try to use raw-paste mode again unless supported by this device
             self.device.use_raw_paste = self.pyboard.use_raw_paste
             return res
