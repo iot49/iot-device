@@ -12,9 +12,10 @@ logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 ADAFRUIT_VID = 0x239A  # Adafruit board
 PARTICLE_VID = 0x2B04  # Particle
 ESP32_VID    = 0x10C4  # ESP32 via CP2104
-STM32_VID    = 0xf055  # STM32 usb port
+STM32_VID    = 0xF055  # STM32 usb port
+DFR0478_VID  = 0x1A86  # DF robot board
 
-COMPATIBLE_VID = { ADAFRUIT_VID, PARTICLE_VID, STM32_VID, ESP32_VID }
+COMPATIBLE_VID = { ADAFRUIT_VID, PARTICLE_VID, STM32_VID, ESP32_VID, DFR0478_VID }
 
 
 class DiscoverSerial(Discover):
