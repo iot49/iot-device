@@ -61,7 +61,7 @@ class EvalRsync(EvalRlist):
             if not dry_run:
                 self.fput(src_file, dst_file)
         if same:
-            data_consumer(colored("Directories match\n", 'green'))
+            data_consumer(colored("Directories match", 'green'))
 
     def _diff(self, mcu_files, host_files):
         # determine difference between host (projects) and mcu
