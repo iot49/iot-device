@@ -4,6 +4,7 @@ from .env import Env
 from .utilities import cd
 from glob import glob
 from fnmatch import fnmatch
+from io import StringIO
 import yaml, os
 
 """
@@ -62,7 +63,7 @@ class DeviceConfig:
     def __str__(self):
         from io import StringIO
         s = StringIO()
-        s.write(f"Configuration (in {self.file}):\n")
+        s.write(f"Configuration ({self.file}):\n")
         for r in self.resources:
             s.write(f"  {r}\n")
         # s.write(f"    spec:                 {self._spec}\n")
@@ -92,6 +93,8 @@ class DeviceConfig:
                 for file in glob("*.yaml") + glob("*.yml"):
                     with open(file) as f:
                         for name, spec in yaml.safe_load(f.read()).items():
+                            if not isinstance(spec, dict):
+                                raise ValueError(f"File {file}: malformed")
                             if name in names:
                                 raise ValueError(f"File {file}: device '{name}' redefined")
                             names.add(name)
@@ -205,6 +208,13 @@ class _Resource:
         return p
 
     def __str__(self):
-        # return f"{self.lib}/{self.name} -> {self.install_dir}"
+        s = StringIO()
+        print(f"{os.path.join(self.install_dir, self.name):25}  ({self.path}/")
+        for f in self.files:
+            print(f"   {f}")
+        return s.getvalue()
+        for f in self.files:
+            print(f)
+        return f"{os.path.join(self.install_dir, self.name)} ({self.path})"
         return f"Res {self.name:22} install-dir={self.install_dir:22} path={self.path}"
     

@@ -16,9 +16,9 @@ class ReplProtocol(EvalRsync):
         self.pyboard.enter_raw_repl(soft_reset=False)
 
     def close(self):
-        # wipes variables ???
-        # self.pyboard.exit_raw_repl()
-        pass
+        # CircuitPython resets when exiting raw repl (ugh!)
+        if self.device.implementation != 'circuitpython':
+            self.pyboard.exit_raw_repl()
 
     def exec(self, code: str, *, data_consumer=None, timeout=10) -> bytes:
         try:

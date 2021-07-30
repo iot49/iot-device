@@ -22,6 +22,10 @@ class Eval(ABC):
     def device(self):
         return self._device
 
+    @property
+    def implemention(self):
+        return self._device.implementation
+
     @abstractmethod
     def exec(self, code: str, data_consumer=None) -> bytes:
         """Exec code on remote (Micro)Python VM.

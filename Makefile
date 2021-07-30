@@ -16,8 +16,10 @@ install-local: clean dist
 	python setup.py install
 
 test:
+	rm -rf tests/projects
 	cd tests; pytest iot_device
-	cd tests; pytest airlift
+#   cd tests; pytest iot_device_old
+#   cd tests; pytest airlift
 
 coverage: test
 	coverage report

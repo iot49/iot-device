@@ -21,8 +21,9 @@ class Device(ABC):
         self._url = url
         # connect to device and retrieve its uid; raise RemoteError if unsuccessful
         self._uid = url
+        self._implementation = self_platform = None  # used in repl
         with self as repl:
-            self._uid = repl.exec(_uid, timeout=1).decode()
+            self._uid, self._implementation, self._platform = repl.exec(_uid, timeout=1).decode().split(' ', 2)
 
     @abstractmethod
     def read(self, size=1) -> bytes:
@@ -58,6 +59,14 @@ class Device(ABC):
         return self._uid
 
     @property
+    def implementation(self):
+        return self._implementation
+
+    @property
+    def platform(self):
+        return self._platform 
+
+    @property
     def url(self) -> str:
         return self._url
 
@@ -84,6 +93,8 @@ class Device(ABC):
 
 ###############################################################################
 # code snippet (run on remote)
+# Note: sys.implementation used in repl_protocol to disable reverting 
+# to "friendly repl" for CircuitPython ports (which reset in that case!)
 
 _uid = """
 uid = bytes(6)
@@ -93,5 +104,6 @@ try:
 except:
     import microcontroller
     uid = microcontroller.cpu.uid
-print(":".join("{:02x}".format(x) for x in uid), end="")
+import sys
+print(":".join("{:02x}".format(x) for x in uid), sys.implementation.name, sys.platform, end="")
 """

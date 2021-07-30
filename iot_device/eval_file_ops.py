@@ -1,12 +1,11 @@
-from .eval import RemoteError
-from .eval_defaults import EvalDefaults
+from .eval import Eval, RemoteError
 import logging, time, os, io, ast
 
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
-class EvalFileOps(EvalDefaults):
+class EvalFileOps(Eval):
     """Add file system operations"""
 
     def makedirs(self, path:str):
