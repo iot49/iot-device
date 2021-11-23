@@ -57,15 +57,16 @@ class MpProtocol(EvalRsync):
         ok = self.readline(timeout=10)
         if ok != 'OK': raise RemoteError(f"fput: expected OK, got {ok}")
 
-    def softreset(self):
-        raise RemoteError("softreset not implemented for 'mp' protocol")
-        # programmatic reset
-        # self.exec(_softreset)
-
     def abort(self):
         # abort program execution - now sure how to do this?
         # perhaps disconnecting? interrupt?
         pass
+
+    def softreset(self):
+        raise RemoteError("softreset not implemented for 'mp' protocol")
+
+    def hardreset(self):
+        raise RemoteError("hardreset not implemented for 'mp' protocol")
 
     def recv(self, sz=1):
         return self.device.sock.recv(sz)

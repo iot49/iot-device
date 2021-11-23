@@ -20,7 +20,7 @@ class ReplProtocol(EvalRsync):
         if self.device.implementation != 'circuitpython':
             self.pyboard.exit_raw_repl()
 
-    def exec(self, code: str, *, data_consumer=None, timeout=10) -> bytes:
+    def exec(self, code: str, *, data_consumer=None, timeout=None) -> bytes:
         try:
             res = self.pyboard.exec(code, data_consumer=data_consumer, timeout=timeout)
             # Don't try to use raw-paste mode again unless supported by this device
@@ -30,6 +30,9 @@ class ReplProtocol(EvalRsync):
             raise RemoteError("Device disconnected")
         except PyboardError as e:
             raise RemoteError(*e.args)
+
+    def abort(self) -> None:
+        self.pyboard.abort()
 
     def softreset(self) -> None:
         try:
@@ -42,11 +45,5 @@ class ReplProtocol(EvalRsync):
             logger.exception(f"softreset: {e}")
             raise RemoteError(*e.args)
 
-    def abort(self) -> None:
-        try:
-            # enter_raw_repl aborts running program (if any)
-            self.pyboard.enter_raw_repl(soft_reset=False)
-            self.pyboard.exit_raw_repl()
-        except PyboardError as e:
-            logger.exception("abort: {e}")
-            raise RemoteError(*e.args)
+    def hardreset(self) -> None:
+        self.pyboard.hardreset()

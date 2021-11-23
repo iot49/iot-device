@@ -14,6 +14,7 @@ MCU_EVAL          = b'\r\x04'  # start evaluation (raw repl)
 EOT               = b'\x04'
 CR                = b'\r'
 
+# thin wrapper around Pyboard
 
 class Pydevice(Pyboard):
 
@@ -22,9 +23,10 @@ class Pydevice(Pyboard):
         if not hasattr(device, 'use_raw_paste'):
             device.use_raw_paste = True
         self.use_raw_paste = device.use_raw_paste
+        # initialize Pyboard
         self.serial = device
 
-    def read_until(self, min_num_bytes, ending, timeout=10, data_consumer=None):
+    def read_until(self, min_num_bytes, ending, timeout=1, data_consumer=None):
         # patch: don't call data_consumer on single chars (if more data is available)
         #        kernel print is very slow on Pi
         # if data_consumer is used then data is not accumulated and the ending must be 1 byte long
@@ -50,21 +52,19 @@ class Pydevice(Pyboard):
                 time.sleep(0.01)
         return data
 
-    def enter_raw_repl(self, soft_reset):
-        # patch: soft_reset is mandatory
-        super().enter_raw_repl(soft_reset)
-
-    def exec(self, command, *, data_consumer=None, timeout=10):
+    def exec(self, command, *, data_consumer=None, timeout=None):
         ret, ret_err = self.exec_raw(command, timeout=timeout, data_consumer=data_consumer)
         if ret_err:
             raise PyboardError(ret_err.decode())
         return ret
 
+    def abort(self):
+        self.enter_raw_repl(False)
+
     def softreset(self):
-        device = self.serial
-        device.write(MCU_ABORT)
-        device.write(MCU_RESET)
-        device.write(CR)
-        data = self.read_until(1, RAW_REPL_MSG)
-        if not data.endswith(RAW_REPL_MSG):
-            raise PyboardError(f"could not reset board:\n  expected '{RAW_REPL_MSG}'\n  got '{data}'")
+        self.enter_raw_repl(True)
+
+    def hardreset(self):
+        self.softreset()
+        self.exec('import machine')
+        self.exec_raw_no_follow('machine.reset()')

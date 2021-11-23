@@ -21,9 +21,16 @@ class DeviceRegistry:
         # map url -> time of last attempt
         self._registration_failed = {}
 
+    def clear(self):
+        """Forget all registered devices"""
+        # map url -> device
+        self._devices = {}
+        # map url -> time of last attempt
+        self._registration_failed = {}
+
     @property
     def devices(self) -> frozenset:
-        """List of all devices that are currently online. Includes InaccessibleDevice."""
+        """List of all devices that are currently online."""
         self._update()
         return frozenset(self._devices.values())
 
