@@ -65,7 +65,7 @@ class MpProtocol(EvalRsync):
     def softreset(self):
         raise RemoteError("softreset not implemented for 'mp' protocol")
 
-    def hardreset(self):
+    def hardreset(self, printer):
         raise RemoteError("hardreset not implemented for 'mp' protocol")
 
     def recv(self, sz=1):
@@ -88,14 +88,3 @@ class MpProtocol(EvalRsync):
             if b == EOT: return res
             if data_consumer: data_consumer(b)
             res += b
-
-
-
-_softreset = """\
-try:
-    import microcontroller
-    microcontroller.reset()
-except ImportError:
-    import machine
-    machine.soft_reset()
-"""

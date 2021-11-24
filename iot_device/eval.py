@@ -8,10 +8,6 @@ class RemoteError(Exception):
     pass
 
 
-def default_data_consumer(data:bytes):
-    print(data)
-
-
 class Eval(ABC):
     """Abstract class encapsulating code evaluation on microcontroller."""
 
@@ -47,9 +43,9 @@ class Eval(ABC):
         Release all variables and devices. boot.py and main.py not run.
         """
     @abstractmethod
-    def hardreset(self) -> None:
+    def hardreset(self, printer, timeout) -> None:
         """Reset MicroPython VM & run boot.py, main.py. Same as pressing reset button.
-        Does not wait for boot.py or main.py to finish.
-        Follow by abort to stop "any" running program.
+        Prints output from boot.py or main.py.
+        Follow by abort to stop "any" running program. 
         """
 

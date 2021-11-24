@@ -39,9 +39,8 @@ class MpDevice(Device):
         self.sock.sendall(b'bye\n')
         try:
             self.sock.close()
-        except:
-            pass
-        self.sock = None
+        finally:
+            self.sock = None
 
     def readline(self, timeout=1):
         """Blocking"""

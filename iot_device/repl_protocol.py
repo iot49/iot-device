@@ -45,5 +45,5 @@ class ReplProtocol(EvalRsync):
             logger.exception(f"softreset: {e}")
             raise RemoteError(*e.args)
 
-    def hardreset(self) -> None:
-        self.pyboard.hardreset()
+    def hardreset(self, printer, timeout) -> None:
+        self.pyboard.hardreset(printer, timeout)

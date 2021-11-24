@@ -26,7 +26,7 @@ class Pydevice(Pyboard):
         # initialize Pyboard
         self.serial = device
 
-    def read_until(self, min_num_bytes, ending, timeout=1, data_consumer=None):
+    def read_until(self, min_num_bytes, ending, timeout=10, data_consumer=None):
         # patch: don't call data_consumer on single chars (if more data is available)
         #        kernel print is very slow on Pi
         # if data_consumer is used then data is not accumulated and the ending must be 1 byte long
@@ -64,7 +64,24 @@ class Pydevice(Pyboard):
     def softreset(self):
         self.enter_raw_repl(True)
 
-    def hardreset(self):
+    def hardreset(self, printer, timeout):
         self.softreset()
         self.exec('import machine')
         self.exec_raw_no_follow('machine.reset()')
+        # patiently wait for output ...
+        while True:
+            start = time.monotonic()
+            while time.monotonic()-start < timeout:
+                if self.serial.inWaiting() > 0:
+                    break
+                time.sleep(0.05)
+            iw = self.serial.inWaiting()
+            if iw > 0:
+                m = self.serial.read(iw)
+                try:
+                    m = m.decode()
+                except:
+                    m = str(m)
+                printer.print(m, end="")
+            else:
+                break

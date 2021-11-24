@@ -1,6 +1,7 @@
 from .device import Device
 from .eval import RemoteError
 from .repl_protocol import ReplProtocol
+from .pyboard import PyboardError
 
 from serial import Serial, SerialException
 import os, time, logging
@@ -33,10 +34,17 @@ class SerialDevice(Device):
             # raise RemoteError(f"Device {self.url} not available (in use?)")
         except Exception as e:
             raise RemoteError(f"Device {self.url} encountered problem: {e}")
-        self._repl_protocol = ReplProtocol(self)
+        try:
+            self._repl_protocol = ReplProtocol(self)
+        except PyboardError as e:
+            # could not enter raw repl
+            self.__serial.close()
+            raise RemoteError(f"{e} (unexpected output, perhaps from main.py?)")
         return self._repl_protocol
 
     def __exit__(self, type, value, traceback):
-        self._repl_protocol.close()
-        self.__serial.close()
-        self.__serial = None
+        try:
+            self._repl_protocol.close()
+        finally:
+            self.__serial.close()
+            self.__serial = None
