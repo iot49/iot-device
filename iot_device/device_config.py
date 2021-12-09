@@ -96,11 +96,13 @@ class DeviceConfig:
                             if not isinstance(spec, dict):
                                 raise ValueError(f"File {file}: malformed")
                             if name in names:
-                                raise ValueError(f"File {file}: device '{name}' redefined")
+                                raise ValueError(f"File {file} device '{name}': redefined")
                             names.add(name)
                             uid = spec.get('uid')
                             if not uid:
                                 raise ValueError(f"File {file} device '{name}': field 'uid' is mandatory")
+                            if uid in uids:
+                                raise ValueError(f"File {file} device '{name}': a device with {uid} is already defined elsewhere")
                             uids.add(uid)
                             result[name] = DeviceConfig(name, uid, spec, file)
         except FileNotFoundError as e:
