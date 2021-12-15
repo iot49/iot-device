@@ -55,29 +55,30 @@ class DeviceRegistry:
     def _update(self):
         # update database ...
         urls = self._discover_serial.scan() | self._discover_broadcasts.scan() | self._discover_mdns.scan()
-        # 1) purge database of devices that are no longer available
+        # 1) purge database
         now = time.monotonic()
-        for k in list(self._devices.keys()):
-            if k in urls: continue
-            v = self._devices[k]
-            if not v.max_age: continue
-            if (now-v.last_seen) > v.max_age:
-                del self._devices[k]
-        # 2) register newly discovered devices (not already in database)
+        for url in list(self._devices.keys()):
+            dev = self._devices[url]
+            if not dev.max_age: continue
+            if (now-dev.last_seen) > dev.max_age:
+                del self._devices[url]
+        # 2) register discovered devices
         for url in urls:
             try:
-                self.register(url, 0.5)
+                self.register(url)
             except (ValueError, RemoteError) as e:
                 # leave this print statement - will show up in jupyter!
                 print(f"\nFailed to register {url}:\n{e}\n")
                 logger.info(f"Failed to register {url}: {e}")
 
-    def register(self, url:str, max_age:float=None):
+    def register(self, url:str, max_age:float=10):
         """Create device for given url and register in database.
         :param: max_age:float  Device automatically unregistered
                      if no activity (register) in specified interval.
-                     Default: None, no automatic unregistering.
+                     None for no automatic unregistering.
                      Calling register (repeatedly) resets age to 0.
+                Issue: replacing devices recycles port (/dev), resulting
+                       in database out of sync.
         """
         if url in self._registration_failed.keys():
             if (time.monotonic() - self._registration_failed[url]) < 10:
