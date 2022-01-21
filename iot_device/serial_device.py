@@ -39,7 +39,7 @@ class SerialDevice(Device):
         except PyboardError as e:
             # could not enter raw repl
             self.__serial.close()
-            raise RemoteError(f"{e} (unexpected output, perhaps from main.py?)")
+            raise RemoteError(f"pyboard {e}")
         return self._repl_protocol
 
     def __exit__(self, type, value, traceback):

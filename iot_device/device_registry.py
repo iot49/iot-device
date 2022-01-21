@@ -81,7 +81,7 @@ class DeviceRegistry:
                        in database out of sync.
         """
         if url in self._registration_failed.keys():
-            if (time.monotonic() - self._registration_failed[url]) < 10:
+            if (time.monotonic() - self._registration_failed[url]) < 30:
                 logger.info(f"skipping failed registration for '{url}'")
                 return
             del self._registration_failed[url]
