@@ -27,7 +27,7 @@ class SerialDevice(Device):
             self.__serial = Serial(self.address, 115200, parity='N',
                 timeout=0.5,            # read timeout
                 write_timeout=2,
-                exclusive=False         # exclusive access mode (POSIX only)
+                exclusive=True          # exclusive access mode (POSIX only)
             )
         except (BlockingIOError, SerialException):
             raise
